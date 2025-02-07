@@ -70,85 +70,122 @@ enum { ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle,
        ClkClientWin, ClkRootWin, ClkLast }; /* clicks */
 
 typedef union {
-	int i;
-	unsigned int ui;
-	float f;
-	const void *v;
+	int i;            //整数类型的参数。
+	unsigned int ui;  //无符号整数类型的参数。
+	float f;          //浮点数类型的参数。
+	const void *v;    //指针类型的参数。
 } Arg;
 
 typedef struct {
-	unsigned int click;
-	unsigned int mask;
-	unsigned int button;
-	void (*func)(const Arg *arg);
-	const Arg arg;
+	unsigned int click;             //点击的类型（如标签栏、布局符号、状态文本等）。
+	unsigned int mask;              //修饰键掩码（如 Ctrl、Alt 等）。
+	unsigned int button;            //鼠标按钮（如鼠标左键、中键、右键等）。
+	void (*func)(const Arg *arg);   //当点击时要调用的函数。
+	const Arg arg;                  //传递给函数的参数。 
 } Button;
 
+/**
+ * Monitor:
+ *  Monitor 结构体表示一个物理显示器或屏幕。
+ *  在多显示器设置中，每个显示器都会有一个对应的 Monitor 对象。
+ *  Monitor 对象包含了与显示器相关的所有信息，如显示器的几何位置、当前显示的窗口列表、布局等。
+ */
 typedef struct Monitor Monitor;
+
+/**
+ * Client:
+ *  Client 结构体表示一个客户端窗口，即一个被窗口管理器管理的应用程序窗口。
+ *  Client 对象包含了与窗口相关的所有信息，如窗口的名称、位置、大小、状态（是否浮动、是否全屏等）、所属的 Monitor 等。
+ */
 typedef struct Client Client;
+
+/**
+ * Window:
+ *  Window 是一个 X Window System 中的基本数据类型，表示一个窗口的标识符。
+ *  它是一个无符号整数，用于唯一标识一个窗口。Window 类型通常用于与 X11 库进行交互，以执行窗口操作（如创建、销毁、移动、调整大小等）。
+ */
 struct Client {
-	char name[256];
-	float mina, maxa;
-	int x, y, w, h;
-	int oldx, oldy, oldw, oldh;
-	int basew, baseh, incw, inch, maxw, maxh, minw, minh, hintsvalid;
-	int bw, oldbw;
-	unsigned int tags;
-	int isfixed, isfloating, isurgent, neverfocus, oldstate, isfullscreen;
-	Client *next;
-	Client *snext;
-	Monitor *mon;
-	Window win;
+	char name[256];                                                         //窗口的名称。
+	float mina, maxa;                                                       //窗口的最小和最大宽高比。
+	int x, y, w, h;                                                         //窗口的几何位置和尺寸（x 坐标、y 坐标、宽度和高度）。
+	int oldx, oldy, oldw, oldh;                                             //窗口的旧几何位置和尺寸。
+	int basew, baseh, incw, inch, maxw, maxh, minw, minh, hintsvalid;       //窗口的基础宽高、增量、最大宽高、最小宽高和提示是否有效。
+	int bw, oldbw;                                                          //窗口的边框宽度和旧边框宽度。
+	unsigned int tags;                                                      //窗口的标签。
+	int isfixed, isfloating, isurgent, neverfocus, oldstate, isfullscreen;  //窗口的固定、浮动、紧急、永不聚焦、旧状态和全屏状态。
+	Client *next;                                                           //链表形式的下一个客户端。
+	Client *snext;                                                          //堆栈中的下一个客户端。
+	Monitor *mon;                                                           //窗口所属的显示器。
+	Window win;                                                             //窗口的标识符。
 };
 
+/**
+ * Key:
+ *  Key 结构体表示一个键盘快捷键的定义。
+ */
 typedef struct {
-	unsigned int mod;
-	KeySym keysym;
-	void (*func)(const Arg *);
-	const Arg arg;
+	unsigned int mod;             //修饰键（如 Ctrl、Alt 等）。
+	KeySym keysym;                //键盘符号（如 'a', 'b', 'Enter' 等）。
+	void (*func)(const Arg *);    //当按下该快捷键时要调用的函数。
+	const Arg arg;                //传递给函数的参数。
 } Key;
 
+/**
+ * Layout:
+ *  Layout 结构体表示窗口管理器中的一种布局方式。
+ *    symbol: 布局的符号表示（如 "[]=", "><>" 等）。
+ *    arrange: 指向一个函数的指针，该函数用于排列窗口。
+ */
 typedef struct {
 	const char *symbol;
 	void (*arrange)(Monitor *);
 } Layout;
 
+/**
+ * Monitor:
+ *  Monitor 结构体表示一个物理显示器或屏幕。
+ *  它包含了与显示器相关的所有信息。
+ */
 struct Monitor {
-	char ltsymbol[16];
-	float mfact;
-	int nmaster;
-	int num;
-	int by;               /* bar geometry */
-	int btw;              /* width of tasks portion of bar */
-	int bt;               /* number of tasks */
-	int mx, my, mw, mh;   /* screen size */
-	int wx, wy, ww, wh;   /* window area  */
-	int gappih;           /* horizontal gap between windows */
-	int gappiv;           /* vertical gap between windows */
-	int gappoh;           /* horizontal outer gaps */
-	int gappov;           /* vertical outer gaps */
-	unsigned int seltags;
-	unsigned int sellt;
-	unsigned int tagset[2];
-	int showbar;
-	int topbar;
-	int hidsel;
-	Client *clients;
-	Client *sel;
-	Client *hov;
-	Client *stack;
-	Monitor *next;
-	Window barwin;
-	const Layout *lt[2];
+	char ltsymbol[16];      //布局的符号表示。
+	float mfact;            //主区域的大小因子。
+	int nmaster;            //主区域的客户端数量。
+	int num;                //显示器的编号。
+	int by;                 //条形几何形状（状态栏的 y 坐标）。
+	int btw;                //栏的任务宽度部分。
+	int bt;                 //任务数。
+	int mx, my, mw, mh;     //显示器的几何位置和尺寸（x 坐标、y 坐标、宽度和高度）。
+	int wx, wy, ww, wh;     //窗口区域的几何位置和尺寸。
+	int gappih;             //窗口之间的水平间隙。
+	int gappiv;             //窗口之间的垂直间隙。
+	int gappoh;             //外部水平间隙。
+	int gappov;             //外部垂直间隙。
+	unsigned int seltags;   //当前选中的标签。
+	unsigned int sellt;     //当前选中的布局。
+	unsigned int tagset[2]; //标签集。
+	int showbar;            //是否显示状态栏。
+	int topbar;             //状态栏是否在顶部.
+	int hidsel;             //是否隐藏选中的窗口。
+	Client *clients;        //链表形式的客户端窗口列表。
+	Client *sel;            //当前选中的客户端窗口。
+	Client *hov;            //当前悬停的客户端窗口。
+	Client *stack;          //堆栈中的客户端窗口。
+	Monitor *next;          //链表形式的下一个显示器。
+	Window barwin;          //状态栏窗口。
+	const Layout *lt[2];    //当前和上一个布局。
 };
 
+/**
+ * Rule:
+ *  Rule 结构体表示窗口管理器中的规则，用于匹配特定的窗口并应用相应的属性。
+ */
 typedef struct {
-	const char *class;
-	const char *instance;
-	const char *title;
-	unsigned int tags;
-	int isfloating;
-	int monitor;
+	const char *class;  //窗口的类名。
+	const char *instance; //窗口的实例名。
+	const char *title;  //窗口的标题。
+	unsigned int tags;  //窗口的标签。
+	int isfloating; //窗口是否浮动。
+	int monitor;  //窗口所属的显示器。
 } Rule;
 
 /* function declarations */
@@ -279,7 +316,7 @@ static void (*handler[LASTEvent]) (XEvent *) = {
 	[ConfigureRequest] = configurerequest,
 	[ConfigureNotify] = configurenotify,
 	[DestroyNotify] = destroynotify,
-	[EnterNotify] = enternotify,
+//  [EnterNotify] = enternotify,
 	[Expose] = expose,
 	[FocusIn] = focusin,
 	[KeyPress] = keypress,
@@ -303,7 +340,7 @@ static Visual *visual;
 static int depth;
 static Colormap cmap;
 
-/* configuration, allows nested code to access above variables */
+/* 配置，允许嵌套代码访问上述变量 */
 #include "config.h"
 
 /* compile-time check if all tags fit into an unsigned int bit array. */
@@ -835,22 +872,41 @@ drawbars(void)
 		drawbar(m);
 }
 
+/**
+ * enternotify 函数处理 XEvent 类型的事件，特别是 XCrossingEvent 事件。
+ * XCrossingEvent 事件在鼠标指针进入或离开窗口时触发。
+ */
 void
 enternotify(XEvent *e)
 {
 	Client *c;
 	Monitor *m;
+
+  // ev 被初始化为传入事件的 xcrossing 成员
 	XCrossingEvent *ev = &e->xcrossing;
 
+  // 检查事件的模式和细节。
+  // 如果事件模式不是 NotifyNormal 或者事件细节是 NotifyInferior，并且事件窗口不是根窗口，则函数直接返回，不做任何处理。
 	if ((ev->mode != NotifyNormal || ev->detail == NotifyInferior) && ev->window != root)
 		return;
+
+  // wintoclient函数 允许通过窗口标识符找到与之关联的客户端对象
+  // 将事件窗口转换为 Client 对象。如果转换成功，c 将指向对应的 Client 对象，否则为 NULL。
 	c = wintoclient(ev->window);
+  // 函数通过三元运算符判断 c 是否为 NULL，
+  // 如果不是，则 m 被设置为 c 所在的 Monitor，否则调用 wintomon 函数将事件窗口转换为 Monitor 对象。
 	m = c ? c->mon : wintomon(ev->window);
+
+  // 函数检查当前 Monitor 是否与全局变量 selmon 指向的 Monitor 不同。
+  // 如果不同，则调用 unfocus 函数取消当前选中窗口的焦点，并将 selmon 设置为新的 Monitor。
+  // 如果 Monitor 相同，并且 Client 对象为 NULL 或者与当前选中的 Client 相同，则函数直接返回。
 	if (m != selmon) {
 		unfocus(selmon->sel, 1);
 		selmon = m;
 	} else if (!c || c == selmon->sel)
 		return;
+
+  // 如果上述条件都不满足，函数调用 focus 函数将焦点设置到新的 Client 对象上。
 	focus(c);
 }
 
@@ -1288,7 +1344,7 @@ motionnotify(XEvent *e)
 			m = c ? c->mon : wintomon(ev->window);
 			drawbar(m);
 		}
-
+/*
 		if (ev->window == root) {
 			if ((m = recttomon(ev->x_root, ev->y_root, 1, 1)) != mon && mon) {
 				unfocus(selmon->sel, 1);
@@ -1297,7 +1353,7 @@ motionnotify(XEvent *e)
 			}
 			mon = m;
 		}
-	
+*/
 		return;
 	}
 
@@ -2558,6 +2614,12 @@ zoom(const Arg *arg)
 int
 main(int argc, char *argv[])
 {
+  /**
+   * 如果命令行参数的数量是2，并且第二个参数是字符串"-v"，则显示版本信息。
+   *  argc 是命令行参数的数量。
+   *  argv 是一个字符串数组，包含了命令行参数。
+   *  strcmp 是一个字符串比较函数，如果两个字符串相等，则返回0。
+   */
 	if (argc == 2 && !strcmp("-v", argv[1]))
 		die("dwm-"VERSION);
 	else if (argc != 1)
