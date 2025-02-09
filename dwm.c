@@ -133,12 +133,10 @@ typedef struct {
 /**
  * Layout:
  *  Layout 结构体表示窗口管理器中的一种布局方式。
- *    symbol: 布局的符号表示（如 "[]=", "><>" 等）。
- *    arrange: 指向一个函数的指针，该函数用于排列窗口。
  */
 typedef struct {
-	const char *symbol;
-	void (*arrange)(Monitor *);
+	const char *symbol;             //布局的符号表示（如 "[]=", "><>" 等）。
+	void (*arrange)(Monitor *);     //指向一个函数的指针，该函数用于排列窗口。
 } Layout;
 
 /**
@@ -195,6 +193,7 @@ static void arrange(Monitor *m);
 static void arrangemon(Monitor *m);
 static void attach(Client *c);
 static void attachstack(Client *c);
+static void attachclient(Client *c);
 static void buttonpress(XEvent *e);
 static void checkotherwm(void);
 static void cleanup(void);
@@ -273,6 +272,7 @@ static void spawn(const Arg *arg);
 static void tag(const Arg *arg);
 static void tagmon(const Arg *arg);
 static void tile(Monitor *m);
+static void magicgrid(Monitor *m);
 static void togglebar(const Arg *arg);
 static void togglefloating(const Arg *arg);
 static void toggletag(const Arg *arg);
@@ -476,8 +476,21 @@ arrangemon(Monitor *m)
 void
 attach(Client *c)
 {
-	c->next = c->mon->clients;
-	c->mon->clients = c;
+  if (!newclientathead) {
+    Client **tc;
+    for (tc = &c->mon->clients; *tc; tc = &(*tc)->next);
+    *tc = c;
+    c->next = NULL;
+  } else {
+    attachclient(c);
+  }
+}
+
+void
+attachclient(Client *c)
+{
+  c->next = c->mon->clients;
+  c->mon->clients = c;
 }
 
 void
@@ -1469,7 +1482,7 @@ void
 pop(Client *c)
 {
 	detach(c);
-	attach(c);
+  attachclient(c);
 	focus(c);
 	arrange(c->mon);
 }
@@ -2095,35 +2108,119 @@ tagmon(const Arg *arg)
 void
 tile(Monitor *m)
 {
+  /**
+   * i, n, h, r：用于循环计数和计算窗口高度。
+   * oe, ie：表示是否启用外部和内部间隙。
+   * mw：主区域的宽度。
+   * my, ty：主区域和堆栈区域的起始位置。
+   * c：指向当前处理的窗口。
+   */
 	unsigned int i, n, h, r, oe = enablegaps, ie = enablegaps, mw, my, ty;
 	Client *c;
 
+  // 计算当前屏幕上可平铺的窗口数量
 	for (n = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), n++);
 	if (n == 0)
 		return;
 
+  // 如果启用了智能间隙，并且窗口数量等于智能间隙的数量，则禁用外部间隙
 	if (smartgaps == n) {
 		oe = 0; // outer gaps disabled
 	}
 
+  // 计算主区域的宽度
 	if (n > m->nmaster)
 		mw = m->nmaster ? (m->ww + m->gappiv*ie) * m->mfact : 0;
 	else
 		mw = m->ww - 2*m->gappov*oe + m->gappiv*ie;
+
+  // 初始化主区域和堆栈区域的起始位置
 	for (i = 0, my = ty = m->gappoh*oe, c = nexttiled(m->clients); c; c = nexttiled(c->next), i++)
 		if (i < m->nmaster) {
+      // 计算主区域中每个窗口的高度
 			r = MIN(n, m->nmaster) - i;
 			h = (m->wh - my - m->gappoh*oe - m->gappih*ie * (r - 1)) / r;
+      // 调整窗口大小和位置
 			resize(c, m->wx + m->gappov*oe, m->wy + my, mw - (2*c->bw) - m->gappiv*ie, h - (2*c->bw), 0);
+      // 更新下一个窗口的起始位置
 			if (my + HEIGHT(c) + m->gappih*ie < m->wh)
 			my += HEIGHT(c) + m->gappih*ie;
 		} else {
+      // 计算堆栈区域中每个窗口的高度
 			r = n - i;
 			h = (m->wh - ty - m->gappoh*oe - m->gappih*ie * (r - 1)) / r;
+      // 调整窗口大小和位置
 			resize(c, m->wx + mw + m->gappov*oe, m->wy + ty, m->ww - mw - (2*c->bw) - 2*m->gappov*oe, h - (2*c->bw), 0);
+      // 更新下一个窗口的起始位置
 			if (ty + HEIGHT(c) + m->gappih*ie < m->wh)
 				ty += HEIGHT(c) + m->gappih*ie;
 		}
+}
+
+void
+magicgrid(Monitor *m)
+{
+  unsigned int i, n, oe = enablegaps, ie = enablegaps;
+  unsigned int cx, cy, cw, ch;
+  unsigned int dx;
+  unsigned int cols, rows, overcols;
+  Client *c;
+
+  for (n = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), n++);
+  if (n == 0) return;
+  if (n == 1) {
+    c = nexttiled(m->clients);
+    cw = (m->ww - m->gappov*oe) * 0.7;
+    ch = (m->wh - m->gappoh*oe) * 0.7;
+    resize(c,
+           m->mx + (m->mw - cw) / 2 + m->gappov*oe,
+           m->my + (m->mh - ch) / 2 + m->gappoh*oe,
+           cw - 2 * c->bw,
+           ch - 2 * c->bw,
+           0);
+    return;
+  }
+  if (n == 2) {
+    c = nexttiled(m->clients);
+    cw = (m->ww - m->gappov*oe - m->gappiv*ie) / 2;
+    ch = (m->wh - m->gappoh*oe - m->gappih*ie) * 0.7;
+    resize(c,
+           m->mx + m->gappov*oe,
+           m->my + (m->mh - ch) / 2 + m->gappoh*oe,
+           cw - 2 * c->bw,
+           ch - 2 * c->bw,
+           0);
+    resize(nexttiled(c->next),
+           m->mx + cw + m->gappov*oe + m->gappiv*ie,
+           m->my + (m->mh - ch) / 2 + m->gappoh*oe,
+           cw - 2 * c->bw,
+           ch - 2 * c->bw,
+           0);
+    return;
+  }
+
+  for (cols = 0; cols <= n / 2; cols++)
+    if (cols * cols >= n)
+      break;
+  rows = (cols && (cols - 1) * cols >= n) ? cols - 1 : cols;
+  ch = (m->wh - 2*m->gappoh*oe - (rows - 1) * m->gappih*ie) / rows;
+  cw = (m->ww - 2*m->gappov*oe - (cols - 1) * m->gappiv*ie) / cols;
+
+  overcols = n % cols;
+  if (overcols) dx = (m->ww - overcols * cw - (overcols - 1) * m->gappiv*ie) / 2 - m->gappov*oe;
+  for (i = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), i++) {
+    cx = m->wx + (i % cols) * (cw + m->gappiv*ie);
+    cy = m->wy + (i / cols) * (ch + m->gappih*ie);
+    if (overcols && i >= n - overcols) {
+      cx += dx;
+    }
+    resize(c,
+           cx + m->gappov*oe,
+           cy + m->gappoh*oe,
+           cw - 2 * c->bw,
+           ch - 2 * c->bw,
+           0);
+  }
 }
 
 void

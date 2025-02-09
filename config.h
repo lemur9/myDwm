@@ -1,6 +1,7 @@
 /* See LICENSE file for copyright and license details. */
 
 /* 外观 */
+static const int newclientathead    = 0;        /* 定义新窗口在栈顶还是栈底 */
 static const unsigned int borderpx  = 1;        /* 窗口边界像素 */
 static const unsigned int snap      = 32;       /* 窗口边框捕捉大小,吸附效果范围 */
 static const unsigned int gappih    = 10;       /* 窗口之间的水平间距 */
@@ -58,6 +59,7 @@ static const Layout layouts[] = {
     { "[]=",      tile },    /* first entry is default */
     { "><>",      NULL },    /* no layout function means floating behavior */
     { "[M]",      monocle },
+    { "[G]",      magicgrid },    /* 网格 */
 };
 
 /* key definitions */
@@ -114,6 +116,7 @@ static const Key keys[] = {
     { MODKEY,                       XK_t,      setlayout,      {.v = &layouts[0]} },
     { MODKEY,                       XK_f,      setlayout,      {.v = &layouts[1]} },
     { MODKEY,                       XK_m,      setlayout,      {.v = &layouts[2]} },
+    { MODKEY,                       XK_z,      setlayout,      {.v = &layouts[3]} },
     { MODKEY,                       XK_space,  setlayout,      {0} },
     { MODKEY|ShiftMask,             XK_space,  togglefloating, {0} },
     { MODKEY,                       XK_0,      view,           {.ui = ~0 } },
