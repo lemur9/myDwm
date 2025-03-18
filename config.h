@@ -11,7 +11,7 @@ static const unsigned int gappov    = 10;       /* 窗口和屏幕边缘之间�
 static const int smartgaps          = 0;        /* 1 表示只有一个窗口时没有外部间距 */
 static const int showbar            = 1;        /* 0 表示不显示状态栏 */
 static const int topbar             = 1;        /* 0 表示底部显示状态栏 */
-static const char *fonts[]          = { "monospace:size=12","WenQuanYi Micro Hei:size=12:type=Regular:antialias=true:autohint=true","Symbols Nerd Font:pixelsize=16:type=2048-em:antialias=true:autohint=true" };
+static const char *fonts[]          = { "monospace:size=12","WenQuanYi Micro Hei:size=12","Symbols Nerd Font:size=12" };
 static const char dmenufont[]       = "monospace:size=12";
 static const char col_gray1[]       = "#222222";    // 状态条底色
 static const char col_gray2[]       = "#444444";    // 当static const unsigned int borderpx不为0时，非活动窗口外边框颜色
@@ -168,7 +168,7 @@ static const Key keys[] = {
     { MODKEY,                       XK_F1,     spawn,          SHCMD("pactl set-sink-mute @DEFAULT_SINK@ toggle") },
     { MODKEY,                       XK_F2,     spawn,          SHCMD("pactl set-sink-volume @DEFAULT_SINK@ -5%") },
     { MODKEY,                       XK_F3,     spawn,          SHCMD("pactl set-sink-volume @DEFAULT_SINK@ +5%") },
-    { MODKEY,                       XK_F12,    spawn,          SHCMD("flameshot gui -c") },
+    { MODKEY,                       XK_F12,    spawn,          SHCMD("flameshot gui") },
 
     TAGKEYS(                        XK_1,                      0)
     TAGKEYS(                        XK_2,                      1)
