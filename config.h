@@ -69,9 +69,9 @@ static const Layout layouts[] = {
 #define MODKEY Mod4Mask
 #define TAGKEYS(KEY,TAG) \
 { MODKEY,                       KEY,      view,           {.ui = 1 << TAG} }, \
-{ MODKEY|ControlMask,           KEY,      toggleview,     {.ui = 1 << TAG} }, \
-{ MODKEY|ShiftMask,             KEY,      tag,            {.ui = 1 << TAG} }, \
-{ MODKEY|ControlMask|ShiftMask, KEY,      toggletag,      {.ui = 1 << TAG} },
+    { MODKEY|ControlMask,           KEY,      toggleview,     {.ui = 1 << TAG} }, \
+    { MODKEY|ShiftMask,             KEY,      tag,            {.ui = 1 << TAG} }, \
+    { MODKEY|ControlMask|ShiftMask, KEY,      toggletag,      {.ui = 1 << TAG} },
 
 /* helper for spawning shell commands in the pre dwm-5.0 fashion */
 #define SHCMD(cmd) { .v = (const char*[]){ "/bin/sh", "-c", cmd, NULL } }
@@ -101,7 +101,7 @@ static const Key keys[] = {
     // 调整主区域的窗口宽度
     { MODKEY,                       XK_h,      setmfact,       {.f = -0.05} },
     { MODKEY,                       XK_l,      setmfact,       {.f = +0.05} },
-    
+
     // 设为主窗口 
     { MODKEY,                       XK_Return, zoom,           {0} },
     // 切换tag
@@ -117,15 +117,15 @@ static const Key keys[] = {
     // 切换浮动
     { MODKEY|ShiftMask,             XK_space,  togglefloating, {0} },
 
-    // 所有tag显示此窗口
+    // 间隙模式切换
     { MODKEY|Mod1Mask,              XK_0,      togglegaps,     {0} },
-    // 恢复默认
+    // 恢复默认窗口间隙
     { MODKEY|Mod1Mask|ShiftMask,    XK_0,      defaultgaps,    {0} },
-    // 此tag显示所有tag上的所有窗口
+    // 显示所有tag上的所有窗口
     { MODKEY,                       XK_0,      view,           {.ui = ~0 } },
-    // 所有tag显示此tag的所有窗口
+    // 所有tag显示此tag的活跃窗口
     { MODKEY|ShiftMask,             XK_0,      tag,            {.ui = ~0 } },
-    
+
     // 多显示器切换
     { MODKEY,                       XK_comma,  focusmon,       {.i = -1 } },
     { MODKEY,                       XK_period, focusmon,       {.i = +1 } },
@@ -137,10 +137,21 @@ static const Key keys[] = {
     { MODKEY,                       XK_s,      show,           {0} },
     { MODKEY|ShiftMask,             XK_s,      showall,        {0} },
     { MODKEY|ShiftMask,             XK_h,      hide,           {0} },
-    
+
     // 打开一个浮动窗口
     { MODKEY,                       XK_f,      spawn,          SHCMD("st -c float") },
-    
+
+    // 调整窗口
+    { MODKEY|ControlMask,  XK_Up,           movewin,          {.ui = UP} },
+    { MODKEY|ControlMask,  XK_Down,         movewin,          {.ui = DOWN} },
+    { MODKEY|ControlMask,  XK_Left,         movewin,          {.ui = LEFT} },
+    { MODKEY|ControlMask,  XK_Right,        movewin,          {.ui = RIGHT} },
+
+    { MODKEY|Mod1Mask,     XK_Up,           resizewin,        {.ui = V_REDUCE} },        /* super alt up       |  调整窗口 */
+    { MODKEY|Mod1Mask,     XK_Down,         resizewin,        {.ui = V_EXPAND} },        /* super alt down     |  调整窗口 */
+    { MODKEY|Mod1Mask,     XK_Left,         resizewin,        {.ui = H_REDUCE} },        /* super alt left     |  调整窗口 */
+    { MODKEY|Mod1Mask,     XK_Right,        resizewin,        {.ui = H_EXPAND} }, 
+
     // dwm退出
     { MODKEY|ShiftMask,             XK_q,      quit,           {0} }, 
 
@@ -165,9 +176,13 @@ static const Key keys[] = {
 
 
     /* 绑定功能键 */
+    // Win+F1 静音
     { MODKEY,                       XK_F1,     spawn,          SHCMD("pactl set-sink-mute @DEFAULT_SINK@ toggle") },
+    // Win+F2 音量减小5%
     { MODKEY,                       XK_F2,     spawn,          SHCMD("pactl set-sink-volume @DEFAULT_SINK@ -5%") },
+    // Win+F3 音量增大5%
     { MODKEY,                       XK_F3,     spawn,          SHCMD("pactl set-sink-volume @DEFAULT_SINK@ +5%") },
+    // Win+F12 截图
     { MODKEY,                       XK_F12,    spawn,          SHCMD("flameshot gui") },
 
     TAGKEYS(                        XK_1,                      0)
