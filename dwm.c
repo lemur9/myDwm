@@ -188,6 +188,11 @@ typedef struct {
 	int monitor;  //窗口所属的显示器。
 } Rule;
 
+typedef struct {
+	const char *cmd;
+	int id;
+} StatusCmd;
+
 /* function declarations */
 static void movewin(const Arg *arg);
 static void resizewin(const Arg *arg);
@@ -248,6 +253,7 @@ static void resizeclient(Client *c, int x, int y, int w, int h);
 static void resizemouse(const Arg *arg);
 static void restack(Monitor *m);
 static void run(void);
+static void runAutostart(void);
 static void scan(void);
 static int sendevent(Client *c, Atom proto);
 static void sendmon(Client *c, Monitor *m);
@@ -307,6 +313,9 @@ static void zoom(const Arg *arg);
 /* variables */
 static const char broken[] = "broken";
 static char stext[256];
+static int statusw;
+static int statuscmdn;
+static char lastbutton[] = "-";
 static int screen;
 static int sw, sh;           /* X display screen geometry width, height */
 static int bh;               /* bar height */
@@ -531,9 +540,27 @@ buttonpress(XEvent *e)
 		} else if (ev->x < x + TEXTW(selmon->ltsymbol))
 			click = ClkLtSymbol;
 		/* 2px right padding */
-		else if (ev->x > selmon->ww - TEXTW(stext) + lrpad - 2)
+		else if (ev->x > selmon->ww - TEXTW(stext) + lrpad - 2) {
+			char *text, *s, ch;
+			*lastbutton = '0' + ev->button;
+
+			x = selmon->ww - statusw;
 			click = ClkStatusText;
-		else {
+
+			statuscmdn = 0;
+			for (text = s = stext; *s && x <= ev->x; s++) {
+				if ((unsigned char) (*s) < ' ') {
+					ch = *s;
+					*s = '\0';
+					x += TEXTW(text) - lrpad;
+					*s = ch;
+					text = s + 1;
+					if (x >= ev->x)
+						break;
+					statuscmdn = ch;
+				}
+			}
+		} else {
 			x += TEXTW(selmon->ltsymbol);
 			c = m->clients;
 
@@ -817,9 +844,24 @@ drawbar(Monitor *m)
 
 	/* draw status first so it can be overdrawn by tags later */
 	if (m == selmon) { /* status is only drawn on selected monitor */
+		char *text, *s, ch;
 		drw_setscheme(drw, scheme[SchemeNorm]);
-		tw = TEXTW(stext) - lrpad + 2; /* 2px right padding */
-		drw_text(drw, m->ww - tw, 0, tw, bh, 0, stext, 0);
+
+		x = 0;
+		for (text = s = stext; *s; s++) {
+			if ((unsigned char) (*s) < ' ') {
+				ch = *s;
+				*s = '\0';
+				tw = TEXTW(text) - lrpad;
+				drw_text(drw, m->ww - statusw + x, 0, tw, bh, 0, text, 0);
+				x += tw;
+				*s = ch;
+				text = s + 1;
+			}
+		}
+		tw = TEXTW(text) - lrpad + 2;
+		drw_text(drw, m->ww - statusw + x, 0, tw, bh, 0, text, 0);
+		tw = statusw;
 	}
 
 	for (c = m->clients; c; c = c->next) {
@@ -1674,6 +1716,17 @@ run(void)
 }
 
 void
+runAutostart()
+{
+	/* load env */
+	setenv("DWM", workspace, 1);
+
+	char cmd [100];
+	sprintf(cmd, "%s &", autostartscript);
+	system(cmd);
+}
+
+void
 scan(void)
 {
 	unsigned int i, num;
@@ -2079,6 +2132,17 @@ spawn(const Arg *arg)
 	if (fork() == 0) {
 		if (dpy)
 			close(ConnectionNumber(dpy));
+		if (arg->v == statuscmd) {
+			for (int i = 0; i < LENGTH(statuscmds); i++) {
+				if (statuscmdn == statuscmds[i].id) {
+					statuscmd[2] = statuscmds[i].cmd;
+					setenv("BUTTON", lastbutton, 1);
+					break;
+				}
+			}
+			if (!statuscmd[2])
+				exit(EXIT_SUCCESS);
+		}
 		setsid();
 
 		sigemptyset(&sa.sa_mask);
@@ -2540,8 +2604,23 @@ updatesizehints(Client *c)
 void
 updatestatus(void)
 {
-	if (!gettextprop(root, XA_WM_NAME, stext, sizeof(stext)))
+	if (!gettextprop(root, XA_WM_NAME, stext, sizeof(stext))) {
 		strcpy(stext, "dwm-"VERSION);
+		statusw = TEXTW(stext) - lrpad + 2;
+	} else {
+		char *text, *s, ch;
+		statusw = 0;
+		for (text = s = stext; *s; s++) {
+			if ((unsigned char) (*s) < ' ') {
+				ch = *s;
+				*s = '\0';
+				statusw += TEXTW(text) - lrpad;
+				*s = ch;
+				text = s + 1;
+			}
+		}
+		statusw += TEXTW(text) - lrpad + 2;
+	}
 	drawbar(selmon);
 }
 
@@ -2731,12 +2810,12 @@ movewin(const Arg *arg)
             top = c->y;
             ny -= c->mon->wh / 4;
             for (tc = c->mon->clients; tc; tc = tc->next) {
-                // 若浮动tc c的顶边会穿过tc的底边 
-                if (!ISVISIBLE(tc) || !tc->isfloating || tc == c) continue;
+	            // 若浮动tc c的顶边会穿过tc的底边
+	            if (!ISVISIBLE(tc) || !tc->isfloating || tc == c) continue;
                 if (c->x + WIDTH(c) < tc->x || c->x > tc->x + WIDTH(tc)) continue;
-                buttom = tc->y + HEIGHT(tc);  
-                if (top > buttom && ny < buttom) {  
-                    tar = MAX(tar, buttom);
+	            buttom = tc->y + HEIGHT(tc);
+	            if (top > buttom && ny < buttom) {
+		            tar = MAX(tar, buttom);
                 };
             }
             ny = tar == -99999 ? ny : tar;
@@ -2747,12 +2826,12 @@ movewin(const Arg *arg)
             buttom = c->y + HEIGHT(c);
             ny += c->mon->wh / 4;
             for (tc = c->mon->clients; tc; tc = tc->next) {
-                // 若浮动tc c的底边会穿过tc的顶边 
-                if (!ISVISIBLE(tc) || !tc->isfloating || tc == c) continue;
+	            // 若浮动tc c的底边会穿过tc的顶边
+	            if (!ISVISIBLE(tc) || !tc->isfloating || tc == c) continue;
                 if (c->x + WIDTH(c) < tc->x || c->x > tc->x + WIDTH(tc)) continue;
                 top = tc->y;
-                if (buttom < top && (ny + HEIGHT(c)) > top) {  
-                    tar = MIN(tar, top - HEIGHT(c));
+                if (buttom < top && (ny + HEIGHT(c)) > top) {
+	                tar = MIN(tar, top - HEIGHT(c));
                 };
             }
             ny = tar == 99999 ? ny : tar;
@@ -2763,7 +2842,7 @@ movewin(const Arg *arg)
             left = c->x;
             nx -= c->mon->ww / 6;
             for (tc = c->mon->clients; tc; tc = tc->next) {
-                // 若浮动tc c的左边会穿过tc的右边 
+                // 若浮动tc c的左边会穿过tc的右边
                 if (!ISVISIBLE(tc) || !tc->isfloating || tc == c) continue;
                 if (c->y + HEIGHT(c) < tc->y || c->y > tc->y + HEIGHT(tc)) continue;
                 right = tc->x + WIDTH(tc);
@@ -2779,7 +2858,7 @@ movewin(const Arg *arg)
             right = c->x + WIDTH(c);
             nx += c->mon->ww / 6;
             for (tc = c->mon->clients; tc; tc = tc->next) {
-                // 若浮动tc c的右边会穿过tc的左边 
+                // 若浮动tc c的右边会穿过tc的左边
                 if (!ISVISIBLE(tc) || !tc->isfloating || tc == c) continue;
                 if (c->y + HEIGHT(c) < tc->y || c->y > tc->y + HEIGHT(tc)) continue;
                 left = tc->x;
@@ -2815,7 +2894,7 @@ resizewin(const Arg *arg)
             right = c->x + WIDTH(c);
             nw += selmon->ww / 16;
             for (tc = c->mon->clients; tc; tc = tc->next) {
-                // 若浮动tc c的右边会穿过tc的左边 
+                // 若浮动tc c的右边会穿过tc的左边
                 if (!ISVISIBLE(tc) || !tc->isfloating || tc == c) continue;
                 if (c->y + HEIGHT(c) < tc->y || c->y > tc->y + HEIGHT(tc)) continue;
                 left = tc->x;
@@ -2836,12 +2915,12 @@ resizewin(const Arg *arg)
             buttom = c->y + HEIGHT(c);
             nh += selmon->wh / 8;
             for (tc = c->mon->clients; tc; tc = tc->next) {
-                // 若浮动tc c的底边会穿过tc的顶边 
+                // 若浮动tc c的底边会穿过tc的顶边
                 if (!ISVISIBLE(tc) || !tc->isfloating || tc == c) continue;
                 if (c->x + WIDTH(c) < tc->x || c->x > tc->x + WIDTH(tc)) continue;
                 top = tc->y;
-                if (buttom < top && (c->y + nh) > top) {  
-                    tar = MAX(tar, top - c->y - 2 * c->bw);
+                if (buttom < top && (c->y + nh) > top) {
+	                tar = MAX(tar, top - c->y - 2 * c->bw);
                 };
             }
             nh = tar == -99999 ? nh : tar;
@@ -2882,6 +2961,7 @@ main(int argc, char *argv[])
 		die("pledge");
 #endif /* __OpenBSD__ */
 	scan();
+	runAutostart();
 	run();
 	cleanup();
 	XCloseDisplay(dpy);

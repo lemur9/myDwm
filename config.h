@@ -34,7 +34,7 @@ static const unsigned int alphas[][3]      = {
 };
 
 /* tagging */
-static const char *tags[] = { "󰣇", "", "", "󰘅", "", "", "", "", "" };
+static const char *tags[] = { "󰣇", "", "", "󰘅", "", "", "", "", "" };
 
 static const Rule rules[] = {
     /* xprop(1):
@@ -43,10 +43,13 @@ static const Rule rules[] = {
      */
     /* class      instance    title       tags mask     isfloating   monitor */
     { "Gimp",     NULL,       NULL,       0,            1,           -1 },
-    { "steam",    NULL,       NULL,       1 << 6,       0,           -1 },
+    { "chrome",   NULL,       NULL,       1 << 2,       0,            0 },
     { "QQ",       NULL,       NULL,       1 << 3,       0,            0 },
     { "wechat",   NULL,       NULL,       1 << 4,       0,            0 },
+    { "steam",    NULL,       NULL,       1 << 6,       0,           -1 },
+    { "obs",      NULL,       NULL,       1 << 7,       0,           -1 },
     { NULL,       NULL,       "画中画",    0,            1,            1 },
+    { NULL,       NULL,       "预览",      0,            1,           -1 },
 
     /** 部分特殊class的规则 */
     {"float",     NULL,       NULL,       0,            1,           -1 }, // class = float       浮动
@@ -68,7 +71,7 @@ static const Layout layouts[] = {
 /* key definitions */
 #define MODKEY Mod4Mask
 #define TAGKEYS(KEY,TAG) \
-{ MODKEY,                       KEY,      view,           {.ui = 1 << TAG} }, \
+    { MODKEY,                       KEY,      view,           {.ui = 1 << TAG} }, \
     { MODKEY|ControlMask,           KEY,      toggleview,     {.ui = 1 << TAG} }, \
     { MODKEY|ShiftMask,             KEY,      tag,            {.ui = 1 << TAG} }, \
     { MODKEY|ControlMask|ShiftMask, KEY,      toggletag,      {.ui = 1 << TAG} },
@@ -80,6 +83,18 @@ static const Layout layouts[] = {
 static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() */
 static const char *dmenucmd[] = { "dmenu_run", "-m", dmenumon, "-fn", dmenufont, "-nb", col_gray1, "-nf", col_gray3, "-sb", col_cyan, "-sf", col_gray4, NULL };
 static const char *termcmd[]  = { "st", NULL };
+
+static const char workspace[] = "/tool/dwm";
+static const char *autostartscript = "$DWM/scripts/utils/autostart.sh";
+
+/* commands spawned when clicking statusbar, the mouse button pressed is exported as BUTTON */
+static const StatusCmd statuscmds[] = {
+    { "notify-send Mouse$BUTTON",           0 },
+    { "$DWM/scripts/statusbar/vol.sh",      5 },
+    { "$DWM/scripts/statusbar/date.sh",     6 },
+};
+
+static const char *statuscmd[] = { "/bin/sh", "-c", NULL, NULL };
 
 static const Key keys[] = {
     /* modifier                     key        function        argument */
@@ -102,7 +117,7 @@ static const Key keys[] = {
     { MODKEY,                       XK_h,      setmfact,       {.f = -0.05} },
     { MODKEY,                       XK_l,      setmfact,       {.f = +0.05} },
 
-    // 设为主窗口 
+    // 设为主窗口
     { MODKEY,                       XK_Return, zoom,           {0} },
     // 切换tag
     { MODKEY,                       XK_Tab,    view,           {0} },
@@ -150,10 +165,10 @@ static const Key keys[] = {
     { MODKEY|Mod1Mask,     XK_Up,           resizewin,        {.ui = V_REDUCE} },        /* super alt up       |  调整窗口 */
     { MODKEY|Mod1Mask,     XK_Down,         resizewin,        {.ui = V_EXPAND} },        /* super alt down     |  调整窗口 */
     { MODKEY|Mod1Mask,     XK_Left,         resizewin,        {.ui = H_REDUCE} },        /* super alt left     |  调整窗口 */
-    { MODKEY|Mod1Mask,     XK_Right,        resizewin,        {.ui = H_EXPAND} }, 
+    { MODKEY|Mod1Mask,     XK_Right,        resizewin,        {.ui = H_EXPAND} },
 
     // dwm退出
-    { MODKEY|ShiftMask,             XK_q,      quit,           {0} }, 
+    { MODKEY|ShiftMask,             XK_q,      quit,           {0} },
 
     // -------- 需重写
     // 调整窗口大小，不保留窗口间隙
@@ -196,21 +211,50 @@ static const Key keys[] = {
     TAGKEYS(                        XK_9,                      8)
 };
 
-/* button definitions */
-/* click can be ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle, ClkClientWin, or ClkRootWin */
+/*
+ * button definitions
+ * click can be ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle, ClkClientWin, or ClkRootWin
+ *
+ * ClkTagBar	    标签栏（tag bar）	                用于切换/操作 tag（桌面/工作区）
+ * ClkLtSymbol	    布局符号（layout symbol）	        切换窗口布局（如平铺/浮动/单窗口）
+ * ClkStatusText	状态栏（status bar）	            通常显示系统状态，支持点击命令
+ * ClkWinTitle	    窗口标题栏（window title bar）	    切换或聚焦窗口
+ * ClkClientWin	    客户端窗口（窗口本体）	            移动/缩放/浮动窗口
+ * ClkRootWin	    根窗口（桌面背景）	                很少用
+ *
+ * Button1          左键
+ * Button2          中键
+ * Button3          右键
+ * Button4          上滚轮
+ * Button5          下滚轮
+ */
 static const Button buttons[] = {
-    /* click                event mask      button          function        argument */
-    { ClkLtSymbol,          0,              Button1,        setlayout,      {0} },
-    { ClkLtSymbol,          0,              Button3,        setlayout,      {.v = &layouts[2]} },
-    { ClkWinTitle,          0,              Button1,        togglewin,      {0} },
-    { ClkWinTitle,          0,              Button2,        zoom,           {0} },
-    { ClkStatusText,        0,              Button2,        spawn,          {.v = termcmd } },
-    { ClkClientWin,         MODKEY,         Button1,        movemouse,      {0} },
-    { ClkClientWin,         MODKEY,         Button2,        togglefloating, {0} },
-    { ClkClientWin,         MODKEY,         Button3,        resizemouse,    {0} },
+    /* click                    event mask              button                  function            argument */
+
+    // 标签栏
     { ClkTagBar,            0,              Button1,        view,           {0} },
     { ClkTagBar,            0,              Button3,        toggleview,     {0} },
     { ClkTagBar,            MODKEY,         Button1,        tag,            {0} },
     { ClkTagBar,            MODKEY,         Button3,        toggletag,      {0} },
+
+    // 布局符号
+    { ClkLtSymbol,          0,              Button1,        setlayout,      {0} },
+    { ClkLtSymbol,          0,              Button3,        setlayout,      {.v = &layouts[2]} },
+
+    // 窗口标题栏
+    { ClkWinTitle,          0,              Button1,        togglewin,      {0} },
+    { ClkWinTitle,          0,              Button2,        zoom,           {0} },
+
+    // 状态栏
+    { ClkStatusText,        0,              Button1,        spawn,          {.v = statuscmd } },
+	{ ClkStatusText,        0,              Button2,        spawn,          {.v = statuscmd } },
+	{ ClkStatusText,        0,              Button3,        spawn,          {.v = statuscmd } },
+	{ ClkStatusText,        0,              Button4,        spawn,          {.v = statuscmd } },
+	{ ClkStatusText,        0,              Button5,        spawn,          {.v = statuscmd } },
+
+    // 客户端窗口
+    { ClkClientWin,         MODKEY,         Button1,        movemouse,      {0} },
+    { ClkClientWin,         MODKEY,         Button2,        togglefloating, {0} },
+    { ClkClientWin,         MODKEY,         Button3,        resizemouse,    {0} },
 };
 
