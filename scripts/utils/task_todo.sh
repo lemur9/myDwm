@@ -16,7 +16,7 @@ create_task() {
         echo "# ${TASK_TIME} 待办清单" > "$TODO_FILE"
         echo "- [ ] S:${TASK_TIME} D:${TASK_TIME}" >> "$TODO_FILE"
     else
-        nvim --noplugin "$TODO_FILE"
+        nvim --noplugin -c "set autowriteall" -c "set updatetime=3000" -c "autocmd CursorHold,CursorHoldI * silent wa" "$TODO_FILE"
     fi
 }
 
