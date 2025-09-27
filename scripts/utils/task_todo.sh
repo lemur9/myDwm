@@ -28,7 +28,7 @@ analysis() {
 
         _expired=$(grep "\- \[ \]" "$file" | grep -v "\- \[ \]\sS" | awk -v today="$TASK_TIME" '{match($0,/D:([0-9-]+)/,a);if (a[1] < today) print $0;}')
 
-        _future=$(grep "\- \[ \]" "$file" | grep -v "\- \[ \]\sS" | awk -v today="$TASK_TIME" '{match($0,/S:([0-9-]+)/,a);if (a[1] > today) print $0;}')
+        _future=$(grep "\- \[ \]" "$file" | grep -v "\- \[ \]\sS" | awk -v today="$TASK_TIME" '{match($0,/S:([0-9-]+)/,a);if (a[1] >= today) print $0;}')
 
         if [ -n "$_expired" ]; then
             printf '%s\n' "$_expired" | sed -i '1r /dev/stdin' "$TODO_FILE"
