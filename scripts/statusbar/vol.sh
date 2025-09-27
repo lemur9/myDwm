@@ -1,12 +1,7 @@
 #!/bin/bash
 
-#toggle() {
-#  notify-send Mouse$BUTTON
-#    vol_text=$(pactl list sinks | grep alsa_output.usb-TTGK_Technology_Co._Ltd_SOMIC_3100220201201-00.analog-stereo -A 7 | sed -n '8p' | awk '{printf int($4)}')
-#    vol_icon=" "
-#   notify-send -r 9527 -h int:value:$vol_text -h string:hlcolor:#dddddd "$vol_icon Volume"
-#   pkill -USR1 slstatus
-#}
+# todo 状态栏目前只显示默认音频入口的音量， 后续调整为类似alsamixer的多音频显示调节界面
+sink_sh=$(cd $(dirname $0);cd ..;pwd)/utils/sink.sh
 
 update() {
     # 获取默认音频入口
@@ -30,12 +25,12 @@ update() {
     notify-send -r 9527 -h int:value:$vol_text -h string:hlcolor:#dddddd "$vol_icon Volume"
 }
 
-setting() {
-    pid=`ps aux | grep 'st -t statusutil_volume' | grep -v grep | awk '{print $2}'`
+settings() {
+    pid=`ps aux | grep 'st -t statusutil_sink_settings' | grep -v grep | awk '{print $2}'`
     mx=`xdotool getmouselocation --shell | grep X= | sed 's/X=//'`
     my=`xdotool getmouselocation --shell | grep Y= | sed 's/Y=//'`
     dunstctl close 9527
-    [ -n "$pid" ] && kill $pid || st -t statusutil_volume -g 50x15+$((mx))+$((my + 20)) -c float -e alsamixer
+    [ -n "$pid" ] && kill $pid || st -t statusutil_sink_settings -g 50x15+$((mx))+$((my + 20)) -c float -e "$sink_sh" settings
 }
 
 change() {
@@ -50,11 +45,46 @@ change() {
     update
 }
 
-case $BUTTON in
-#case "$1" in
-    1) change 0 ;;
-    3) setting ;;
-    4) change +1 ;;
-    5) change -1 ;;
-    *) ;;
-esac
+sinks() {
+    pid=`ps aux | grep 'st -t statusutil_sink' | grep -v grep | awk '{print $2}'`
+    mx=`xdotool getmouselocation --shell | grep X= | sed 's/X=//'`
+    my=`xdotool getmouselocation --shell | grep Y= | sed 's/Y=//'`
+    dunstctl close 9527
+    [ -n "$pid" ] && kill $pid || st -t statusutil_sink -g 50x15+$((mx))+$((my + 20)) -c float -e "$sink_sh" once
+}
+
+change_all() {
+    # 获取所有音频输出设备
+    sinks=$(pactl list short sinks | awk '{print $1}')
+
+    # 静音设置
+    if [ "$1" -eq 0 ]; then
+        for sink in $sinks; do
+            pactl set-sink-mute $sink toggle
+        done
+    else
+        # 设置所有设备音量
+        for sink in $sinks; do
+            pactl set-sink-volume $sink $1%
+        done
+    fi
+
+    pkill -USR1 slstatus
+    update
+}
+
+if [ -n "$BUTTON" ]; then
+   case $BUTTON in
+   #case "$1" in
+       1) change 0 ;;
+       2) sinks ;;
+       3) settings ;;
+       4) change +1 ;;
+       5) change -1 ;;
+       *) ;;
+   esac
+else
+    case $1 in
+        all) change_all $2 ;;
+    esac
+fi

@@ -192,11 +192,11 @@ static const Key keys[] = {
 
     /* 绑定功能键 */
     // Win+F1 静音
-    { MODKEY,                       XK_F1,     spawn,          SHCMD("pactl set-sink-mute @DEFAULT_SINK@ toggle") },
+    { MODKEY,                       XK_F1,     spawn,          SHCMD("$DWM/scripts/statusbar/vol.sh all 0") },
     // Win+F2 音量减小5%
-    { MODKEY,                       XK_F2,     spawn,          SHCMD("pactl set-sink-volume @DEFAULT_SINK@ -5%") },
+    { MODKEY,                       XK_F2,     spawn,          SHCMD("$DWM/scripts/statusbar/vol.sh all -5") },
     // Win+F3 音量增大5%
-    { MODKEY,                       XK_F3,     spawn,          SHCMD("pactl set-sink-volume @DEFAULT_SINK@ +5%") },
+    { MODKEY,                       XK_F3,     spawn,          SHCMD("$DWM/scripts/statusbar/vol.sh all +5") },
     // Win+F12 截图
     { MODKEY,                       XK_F12,    spawn,          SHCMD("flameshot gui") },
 
