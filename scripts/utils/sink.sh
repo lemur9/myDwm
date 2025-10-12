@@ -6,7 +6,6 @@ operation_list="1:禁音切换
 3:音量-5%"
 
 change() {
-    echo "音频切换"
     count=1
     while [ $count -ne 0 ]; do
         count=$1
@@ -33,30 +32,31 @@ change() {
 }
 
 change_multiple() {
-    echo "多音频音量调节"
     sink_selection=$(pactl list sinks | grep -E "\sName:|\s名称：" | awk -F '[:：]' '{print $2}' | nl -w1 -s': ' | fzf --prompt="选择音频设备> " --height=40% --layout=reverse --border)
 
     if [ -z "$sink_selection" ]; then
         exit 1
     fi
 
-    operation_choice=$(printf '%s\n' "$operation_list" | awk -F '[:：]' '{print $2}' | nl -w1 -s': ' | fzf --prompt="选择操作> " --height=40% --layout=reverse --border)
+    sink_name=$(echo "$sink_selection" | awk '{print $2}')
+    volume=$(pactl list sinks | grep $sink_name -A 7 | sed -n '8p' | awk '{printf int($4)}')
+
+    operation_choice=$(printf '%s\n%s\n' "0:音量 $volume%" "$operation_list" | awk -F '[:：]' '{print $2}' | nl -w1 -s': ' | fzf --prompt="选择操作> " --height=40% --layout=reverse --border)
 
     if [ -z "$operation_choice" ]; then
         exit 1
     fi
 
-    sink_name=$(echo "$sink_selection" | awk '{print $2}')
     operation=$(echo "$operation_choice" | cut -d: -f1)
 
     case "$operation" in
-        1)
+        2)
             pactl set-sink-mute "$sink_name" toggle
             ;;
-        2)
+        3)
             pactl set-sink-volume "$sink_name" +5%
             ;;
-        3)
+        4)
             pactl set-sink-volume "$sink_name" -5%
             ;;
     esac
