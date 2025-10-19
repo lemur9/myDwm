@@ -9,6 +9,10 @@ static const unsigned int gappiv    = 10;       /* 窗口之间的垂直间距*/
 static const unsigned int gappoh    = 10;       /* 窗口和屏幕边缘之间的水平间距 */
 static const unsigned int gappov    = 10;       /* 窗口和屏幕边缘之间的垂直间距 */
 static const int smartgaps          = 0;        /* 1 表示只有一个窗口时没有外部间距 */
+static const unsigned int systraypinning = 0;   /* 0: sloppy systray follows selected monitor, >0: pin systray to monitor X */
+static const unsigned int systrayspacing = 2;   /* systray spacing */
+static const int systraypinningfailfirst = 1;   /* 1: if pinning fails, display systray on the first monitor, False: display systray on the last monitor*/
+static const int showsystray        = 1;     /* 0 means no systray */
 static const int showbar            = 1;        /* 0 表示不显示状态栏 */
 static const int topbar             = 1;        /* 0 表示底部显示状态栏 */
 static const char *fonts[]          = { "JetBrainsMono Nerd Font Mono:style=medium:size=13", "monospace:size=13" };
