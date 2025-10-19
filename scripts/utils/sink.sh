@@ -69,6 +69,6 @@ change_multiple() {
 case $1 in
     settings) change_multiple ;;
     once) change 0 ;;
-    forever) change 1 ;;
+    loop) change 1 ;;
     *) change 0 ;;
 esac

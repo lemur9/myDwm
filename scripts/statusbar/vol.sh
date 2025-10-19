@@ -75,7 +75,6 @@ change_all() {
 
 if [ -n "$BUTTON" ]; then
    case $BUTTON in
-   #case "$1" in
        1) change 0 ;;
        2) sinks ;;
        3) settings ;;
