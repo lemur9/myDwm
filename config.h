@@ -75,7 +75,7 @@ static const Layout layouts[] = {
 /* key definitions */
 #define MODKEY Mod4Mask
 #define TAGKEYS(KEY,TAG) \
-  { MODKEY,                       KEY,      view,           {.ui = 1 << TAG} }, \
+{ MODKEY,                       KEY,      view,           {.ui = 1 << TAG} }, \
   { MODKEY|ControlMask,           KEY,      toggleview,     {.ui = 1 << TAG} }, \
   { MODKEY|ShiftMask,             KEY,      tag,            {.ui = 1 << TAG} }, \
   { MODKEY|ControlMask|ShiftMask, KEY,      toggletag,      {.ui = 1 << TAG} },
@@ -95,7 +95,8 @@ static const char *autostartscript = "$DWM/scripts/utils/autostart.sh";
 static const StatusCmd statuscmds[] = {
   { "notify-send Mouse$BUTTON",           0 },
   { "$DWM/scripts/statusbar/vol.sh",      5 },
-  { "$DWM/scripts/statusbar/date.sh",     6 },
+  { "$DWM/scripts/statusbar/clock.sh",      6 },
+  { "$DWM/scripts/statusbar/date.sh",     7 },
 };
 
 static const char *statuscmd[] = { "/bin/sh", "-c", NULL, NULL };
