@@ -2,8 +2,8 @@
 
 task_todo_sh=$(cd $(dirname $0);pwd)/task_todo.sh
 
-work_sound="$HOME/script/pomodoro/work.wav"
-rest_sound="$HOME/script/pomodoro/rest.wav"
+work_sound="$(cd $(dirname $0);pwd)/sound/work.wav"
+rest_sound="$(cd $(dirname $0);pwd)/sound/rest.wav"
 work_interval=$((45 * 60))
 rest_interval=$((15 * 60))
 

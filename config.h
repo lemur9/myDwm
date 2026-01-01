@@ -93,10 +93,12 @@ static const char *autostartscript = "$DWM/scripts/utils/autostart.sh";
 
 /* commands spawned when clicking statusbar, the mouse button pressed is exported as BUTTON */
 static const StatusCmd statuscmds[] = {
-  { "notify-send Mouse$BUTTON",           0 },
-  { "$DWM/scripts/statusbar/vol.sh",      5 },
-  { "$DWM/scripts/statusbar/clock.sh",      6 },
-  { "$DWM/scripts/statusbar/date.sh",     7 },
+  { "notify-send Mouse$BUTTON",             0 },
+  { "$DWM/scripts/statusbar/music.sh",      4 },
+  { "$DWM/scripts/statusbar/playlist.sh",      5 },
+  { "$DWM/scripts/statusbar/vol.sh",        6 },
+  { "$DWM/scripts/statusbar/clock.sh",      7 },
+  { "$DWM/scripts/statusbar/date.sh",       8 },
 };
 
 static const char *statuscmd[] = { "/bin/sh", "-c", NULL, NULL };

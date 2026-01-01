@@ -425,6 +425,13 @@ applyrules(Client *c)
   if (ch.res_name)
     XFree(ch.res_name);
   c->tags = c->tags & TAGMASK ? c->tags & TAGMASK : c->mon->tagset[c->mon->seltags];
+ 
+  if (selmon != c->mon) {
+    selmon = c->mon;
+    focus(NULL);
+  }
+
+  view(&(Arg){ .ui = c-> tags });
 }
 
 int
