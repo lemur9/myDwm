@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # todo 状态栏目前只显示默认音频入口的音量， 后续调整为类似alsamixer的多音频显示调节界面
-sink_sh=$(cd $(dirname $0);cd ..;pwd)/utils/sink.sh
+sink_sh=$(cd $(dirname $0);cd ..;pwd)/utils/sound/sink.sh
 
 update() {
   sink=$(pactl info | grep 'Default Sink' | awk '{print $3}')

@@ -89,7 +89,7 @@ static const char *dmenucmd[] = { "dmenu_run", "-m", dmenumon, "-fn", dmenufont,
 static const char *termcmd[]  = { "st", NULL };
 
 static const char workspace[] = "/tool/dwm";
-static const char *autostartscript = "$DWM/scripts/utils/autostart.sh";
+static const char *autostartscript = "$DWM/scripts/utils/task/autostart.sh";
 
 /* commands spawned when clicking statusbar, the mouse button pressed is exported as BUTTON */
 static const StatusCmd statuscmds[] = {

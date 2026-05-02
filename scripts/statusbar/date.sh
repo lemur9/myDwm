@@ -1,7 +1,7 @@
 #!/bin/bash
 # DATE 获取日期和时间的脚本
 
-todo_sh=$(cd $(dirname $0);cd ..;pwd)/utils/task_todo.sh
+todo_sh=$(cd $(dirname $0);cd ..;pwd)/utils/task/task_todo.sh
 
 TODAY=$(date +%Y%m%d)
 

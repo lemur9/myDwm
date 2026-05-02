@@ -1027,6 +1027,8 @@ drawbars(void)
 
   for (m = mons; m; m = m->next)
     drawbar(m);
+  if (showsystray)
+    updatesystray();
 }
 
 /**

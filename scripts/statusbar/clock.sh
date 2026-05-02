@@ -4,9 +4,9 @@
 command -v aplay >/dev/null 2>&1 || { echo "❌ 请先安装 aplay (alsa-utils)"; exit 1; }
 command -v notify-send >/dev/null 2>&1 || { echo "❌ 请先安装 notify-send (libnotify)"; exit 1; }
 
-pomodoro_sh=$(cd $(dirname $0);cd ..;pwd)/utils/pomodoro.sh
+pomodoro_sh=$(cd $(dirname $0);cd ..;pwd)/utils/pomodoro/pomodoro.sh
 
-export CONFIG_FILE="$HOME/script/pomodoro/.config"
+export CONFIG_FILE="$(cd $(dirname $0);cd ..;pwd)/utils/pomodoro/.config"
 export POMODORO_TIME=$(sed -n '3p' "$CONFIG_FILE")
 
 pomodoro() {
