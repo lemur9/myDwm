@@ -37,16 +37,16 @@ _speak() {
     | aplay -r 22050 -f S16_LE -c 1 -q
 }
 
-# 一次性扫描当天定时任务，按时间顺序等待并播报，播完再处理下一条
 remind() {
   local pid_file="${XDG_RUNTIME_DIR:-/tmp}/todo_remind.pid"
-  if [ -f "$pid_file" ]; then
-    local old_pid=$(cat "$pid_file")
-    [ -n "$old_pid" ] && kill "$old_pid" 2>/dev/null
-  fi
-  echo $$ > "$pid_file"
 
-  while IFS= read -r line; do
+  # 单实例锁（防重复启动）
+  exec 9>"$pid_file"
+  flock -n 9 || exit 0
+
+  # 读取所有任务
+  grep "^\- \[ \]" "$TODO_FILE" 2>/dev/null | while IFS= read -r line; do
+
     local stime
     stime=$(echo "$line" | grep -oE 'S:[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}:[0-9]{2}:[0-9]{2}' | sed 's/S://')
     [ -z "$stime" ] && continue
@@ -55,36 +55,42 @@ remind() {
     stime_ts=$(date -d "${stime/_/ }" +%s 2>/dev/null)
     [ -z "$stime_ts" ] && continue
 
-    [ "$stime_ts" -le "$(date +%s)" ] && continue
+    local now_ts
+    now_ts=$(date +%s)
+
+    # 已过期跳过
+    [ "$stime_ts" -le "$now_ts" ] && continue
 
     local task_text
     task_text=$(echo "$line" | sed 's/^- \[ \] //;s/S:[^ ]*//g;s/D:[^ ]*//g' | xargs)
-    [ -z "$task_text" ] && continue
 
-    local wait_secs=$(( stime_ts - $(date +%s) ))
-    [ "$wait_secs" -gt 0 ] && sleep "$wait_secs"
+    local key="${stime}|${task_text}"
 
-    notify-send -t 8000 "⏰ 任务提醒" "$task_text" 2>/dev/null
-    _speak "任务提醒"
-    sleep 0.3
-    _speak "${task_text}"
+    # ===== 核心：事件驱动调度 =====
+    (
+      sleep $(( stime_ts - $(date +%s) ))
+      notify-send "⏰ 任务提醒" "$task_text" 2>/dev/null
+      _speak "任务提醒"
+      sleep 0.2
+      _speak "$task_text"
 
-  done < <(grep "^\- \[ \]" "$TODO_FILE" 2>/dev/null \
-    | awk 'match($0,/S:([0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}:[0-9]{2}:[0-9]{2})/,a) {print a[1]" "$0}' \
-    | sort | sed 's/^[^ ]* //')
+    ) &
 
-  rm -f "$pid_file"
+  done
 }
 
 auto_finish() {
   local pid_file="${XDG_RUNTIME_DIR:-/tmp}/todo_auto_finish.pid"
-  if [ -f "$pid_file" ]; then
-    local old_pid=$(cat "$pid_file")
-    [ -n "$old_pid" ] && kill "$old_pid" 2>/dev/null
-  fi
-  echo $$ > "$pid_file"
 
-  while IFS= read -r line; do
+  # 单实例锁
+  exec 9>"$pid_file"
+  flock -n 9 || exit 0
+
+  local now_ts
+  now_ts=$(date +%s)
+
+  grep "^\- \[ \]" "$TODO_FILE" 2>/dev/null | while IFS= read -r line; do
+
     local dtime
     dtime=$(echo "$line" | grep -oE 'D:[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}:[0-9]{2}:[0-9]{2}' | sed 's/D://')
     [ -z "$dtime" ] && continue
@@ -93,20 +99,38 @@ auto_finish() {
     dtime_ts=$(date -d "${dtime/_/ }" +%s 2>/dev/null)
     [ -z "$dtime_ts" ] && continue
 
-    [ "$dtime_ts" -le "$(date +%s)" ] && continue
+    # 已过期直接执行（不 sleep）
+    if [ "$dtime_ts" -le "$now_ts" ]; then
+      _do_finish "$line"
+      continue
+    fi
 
-    local wait_secs=$(( dtime_ts - $(date +%s) ))
-    [ "$wait_secs" -gt 0 ] && sleep "$wait_secs"
+    local task_line="$line"
 
-    local escaped_dtime
-    escaped_dtime=$(echo "$dtime" | sed 's/[[\.*^$()+?{|]/\\&/g')
-    sed -i "s/^- \[ \]\(.*D:${escaped_dtime}.*\)$/- [x]\1/" "$TODO_FILE"
+    # ===== 事件驱动核心 =====
+    (
+      sleep $(( dtime_ts - $(date +%s) ))
 
-  done < <(grep "^\- \[ \]" "$TODO_FILE" 2>/dev/null \
-    | awk 'match($0,/D:([0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}:[0-9]{2}:[0-9]{2})/,a) {print a[1]" "$0}' \
-    | sort | sed 's/^[^ ]* //')
+      # 二次校验（防重复执行）
+      grep -Fqx "$task_line" "$TODO_FILE" || exit 0
 
-  rm -f "$pid_file"
+      _do_finish "$task_line"
+
+    ) &
+
+  done
+}
+
+_do_finish() {
+  local line="$1"
+
+  local dtime
+  dtime=$(echo "$line" | grep -oE 'D:[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}:[0-9]{2}:[0-9]{2}' | sed 's/D://')
+
+  local escaped
+  escaped=$(printf '%s' "$dtime" | sed 's/[]\/$*.^[]/\\&/g')
+
+  sed -i "s/^- \[ \]\(.*D:${escaped}.*\)$/- [x]\1/" "$TODO_FILE"
 }
 
 analysis() {

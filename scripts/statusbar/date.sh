@@ -37,7 +37,7 @@ call_todo() {
     mx=`xdotool getmouselocation --shell | grep X= | sed 's/X=//'`
     my=`xdotool getmouselocation --shell | grep Y= | sed 's/Y=//'`
     dunstctl close 9527
-    if [ -n "$pid" ] && kill "$pid" 2>/dev/null; then
+    if [ -n "$pid" ] && kill $pid; then
         $todo_sh remind &
         $todo_sh auto_finish &
     else
