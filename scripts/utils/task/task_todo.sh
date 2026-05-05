@@ -38,7 +38,7 @@ analysis() {
   for file in ~/work/todo/todo_*.md; do
     if [ "$file" = "$TODO_FILE" ]; then continue; fi
 
-    _expired=$(grep "\- \[ \]" "$file" | grep -v "\- \[ \]\sS" | awk -v today="$TASK_TIME" '{match($0,/D:([0-9-]+)/,a);if (a[1] < today) print $0;}')
+    _expired=$(grep "\- \[ \]" "$file" | grep -v "\- \[ \]\sS" | awk -v today="$TASK_TIME" '{match($0,/D:([0-9-]+)/,a);if (a[1] <= today) print $0;}')
 
     _future=$(grep "\- \[ \]" "$file" | grep -v "\- \[ \]\sS" | awk -v today="$TASK_TIME" '{match($0,/S:([0-9-]+)/,a);if (a[1] >= today) print $0;}')
 

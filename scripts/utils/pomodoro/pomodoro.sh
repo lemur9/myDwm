@@ -1,6 +1,6 @@
 #!/bin/bash
 
-task_todo_sh=$(cd $(dirname $0);pwd)/task_todo.sh
+task_todo_sh=$(cd $(dirname $0);cd ..;pwd)/task/task_todo.sh
 
 work_sound="$(cd $(dirname $0);pwd)/sound/work.wav"
 rest_sound="$(cd $(dirname $0);pwd)/sound/rest.wav"
@@ -13,14 +13,14 @@ content=$(sed -n '2p' "$CONFIG_FILE")
 
 settings() {
   echo "🍅 开启番茄钟 🍅"
-  read -p "专注内容:" content
+  read -p "专注内容:" task_content
   read -p "专注时长(分钟):" focus_duration
 
   start_time=$(date '+%H:%M:%S')
   end_time=$(date -d "@$(( $(date +%s) + $focus_duration * 60 ))" '+%Y-%m-%d %H:%M:%S')
 
   echo "$start_time" > $CONFIG_FILE
-  echo "$content" >> $CONFIG_FILE
+  echo "$task_content" >> $CONFIG_FILE
   echo "$focus_duration" >> $CONFIG_FILE
   echo "$end_time" >> $CONFIG_FILE
 }
@@ -60,7 +60,7 @@ status() {
 
 cancel() {
   pid=`ps aux | grep 'pomodoro.sh start' | grep -v grep | awk '{print $2}'`
-  [ -n "$pid" ] && kill $pid && echo "" > "$CONFIG_FILE" && bash "$task_todo_sh" delete $content && notify-send -r 9527 -t 5000 "🍅 番茄钟 🍅" "⚙️ 当前番茄钟任务已取消..."
+  [ -n "$pid" ] && kill $pid && echo "" > "$CONFIG_FILE" && bash "$task_todo_sh" delete "$content" && notify-send -r 9527 -t 5000 "🍅 番茄钟 🍅" "⚙️ 当前番茄钟任务已取消..."
 }
 
 health() {
@@ -82,13 +82,13 @@ health() {
 
 add_todo() {
   if [ "$sync_todo" -eq 1 ]; then
-    bash "$task_todo_sh" add $content
+    bash "$task_todo_sh" add "$content"
   fi
 }
 
 finish_todo() {
   if [ "$sync_todo" -eq 1 ]; then
-    bash "$task_todo_sh" finish $content
+    bash "$task_todo_sh" finish "$content"
   fi
 }
 

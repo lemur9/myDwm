@@ -18,8 +18,8 @@ notify() {
 
     # 今日任务
     _todaytask=$(cat ~/work/todo/todo_$TODAY.md | grep "\- \[ \]" | grep "$d1" | grep -v "\- \[ \]\sS" | sed 's/- \[ \] /- /' | sed 's/[SD]:.*//')
-    # 历史任务
-    _alltask=$(cat ~/work/todo/todo_*.md | grep "\- \[ \]" | grep -v "\- \[ \]\sS" | grep -v "$d2\|$d3" | sed 's/- \[ \] //' | sed 's/[SD]:.*//')
+    # 兜底任务
+    _fallbacktask=$(cat ~/work/todo/todo_*.md | grep "\- \[ \]" | grep -v "\- \[ \]\sS" | grep -v "$d2\|$d3" | sed 's/- \[ \] //' | sed 's/[SD]:.*//')
 
     t1="<b><span color=\"#54FF9F\">任务:$_all</span></b>"
     t2="<b><span color=\"#FFB90F\">临期:$_near3day</span></b>"
@@ -27,7 +27,7 @@ notify() {
     _todotext="$t1 $t2 $t3"
 
     [ "$_todaytask" ] && _todaytext="<b><span color=\"#FF79C6\">\n\n$_todaytask</span></b>"
-    [ ! "$_todaytask" ] && _todaytext="<b><span color=\"#FFE0C8DD\">\n\n$_alltask</span></b>"
+    [ ! "$_todaytask" ] && _todaytext="<b><span color=\"#FFE0C8DD\">\n\n$_fallbacktask</span></b>"
 
     notify-send "  Calendar" "\n$_cal\n\n$_todotext$_todaytext" -r 9527
 }
