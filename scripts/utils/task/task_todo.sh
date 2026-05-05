@@ -76,6 +76,39 @@ remind() {
   rm -f "$pid_file"
 }
 
+auto_finish() {
+  local pid_file="${XDG_RUNTIME_DIR:-/tmp}/todo_auto_finish.pid"
+  if [ -f "$pid_file" ]; then
+    local old_pid=$(cat "$pid_file")
+    [ -n "$old_pid" ] && kill "$old_pid" 2>/dev/null
+  fi
+  echo $$ > "$pid_file"
+
+  while IFS= read -r line; do
+    local dtime
+    dtime=$(echo "$line" | grep -oE 'D:[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}:[0-9]{2}:[0-9]{2}' | sed 's/D://')
+    [ -z "$dtime" ] && continue
+
+    local dtime_ts
+    dtime_ts=$(date -d "${dtime/_/ }" +%s 2>/dev/null)
+    [ -z "$dtime_ts" ] && continue
+
+    [ "$dtime_ts" -le "$(date +%s)" ] && continue
+
+    local wait_secs=$(( dtime_ts - $(date +%s) ))
+    [ "$wait_secs" -gt 0 ] && sleep "$wait_secs"
+
+    local escaped_dtime
+    escaped_dtime=$(echo "$dtime" | sed 's/[[\.*^$()+?{|]/\\&/g')
+    sed -i "s/^- \[ \]\(.*D:${escaped_dtime}.*\)$/- [x]\1/" "$TODO_FILE"
+
+  done < <(grep "^\- \[ \]" "$TODO_FILE" 2>/dev/null \
+    | awk 'match($0,/D:([0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}:[0-9]{2}:[0-9]{2})/,a) {print a[1]" "$0}' \
+    | sort | sed 's/^[^ ]* //')
+
+  rm -f "$pid_file"
+}
+
 analysis() {
   [ ! -f "$TODO_FILE" ] && create_task
 
@@ -110,6 +143,7 @@ case $1 in
   delete) delete_task $2 ;;
   analysis) clear_task && analysis ;;
   remind) remind ;;
+  auto_finish) auto_finish ;;
   *) clear_task ;;
 esac
 

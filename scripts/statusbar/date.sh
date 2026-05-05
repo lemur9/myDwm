@@ -39,6 +39,7 @@ call_todo() {
     dunstctl close 9527
     if [ -n "$pid" ] && kill "$pid" 2>/dev/null; then
         $todo_sh remind &
+        $todo_sh auto_finish &
     else
         st -t statusutil_todo -g 50x15+$((mx))+$((my + 20)) -c float -e "$todo_sh" create
     fi
