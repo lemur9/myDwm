@@ -37,7 +37,11 @@ call_todo() {
     mx=`xdotool getmouselocation --shell | grep X= | sed 's/X=//'`
     my=`xdotool getmouselocation --shell | grep Y= | sed 's/Y=//'`
     dunstctl close 9527
-    [ -n "$pid" ] && kill $pid || st -t statusutil_todo -g 50x15+$((mx))+$((my + 20)) -c float -e "$todo_sh" create
+    if [ -n "$pid" ] && kill "$pid" 2>/dev/null; then
+        $todo_sh remind &
+    else
+        st -t statusutil_todo -g 50x15+$((mx))+$((my + 20)) -c float -e "$todo_sh" create
+    fi
 }
 
 task_list() {

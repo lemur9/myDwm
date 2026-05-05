@@ -32,6 +32,50 @@ delete_task() {
   sed -i "/- \[ \].*$1/d" "$TODO_FILE"
 }
 
+_speak() {
+  echo "$1" | piper-tts -m /opt/piper/zh_CN-huayan-medium.onnx --output-raw \
+    | aplay -r 22050 -f S16_LE -c 1 -q
+}
+
+# 一次性扫描当天定时任务，按时间顺序等待并播报，播完再处理下一条
+remind() {
+  local pid_file="${XDG_RUNTIME_DIR:-/tmp}/todo_remind.pid"
+  if [ -f "$pid_file" ]; then
+    local old_pid=$(cat "$pid_file")
+    [ -n "$old_pid" ] && kill "$old_pid" 2>/dev/null
+  fi
+  echo $$ > "$pid_file"
+
+  while IFS= read -r line; do
+    local stime
+    stime=$(echo "$line" | grep -oE 'S:[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}:[0-9]{2}:[0-9]{2}' | sed 's/S://')
+    [ -z "$stime" ] && continue
+
+    local stime_ts
+    stime_ts=$(date -d "${stime/_/ }" +%s 2>/dev/null)
+    [ -z "$stime_ts" ] && continue
+
+    [ "$stime_ts" -le "$(date +%s)" ] && continue
+
+    local task_text
+    task_text=$(echo "$line" | sed 's/^- \[ \] //;s/S:[^ ]*//g;s/D:[^ ]*//g' | xargs)
+    [ -z "$task_text" ] && continue
+
+    local wait_secs=$(( stime_ts - $(date +%s) ))
+    [ "$wait_secs" -gt 0 ] && sleep "$wait_secs"
+
+    notify-send -t 8000 "⏰ 任务提醒" "$task_text" 2>/dev/null
+    _speak "任务提醒"
+    sleep 0.3
+    _speak "${task_text}"
+
+  done < <(grep "^\- \[ \]" "$TODO_FILE" 2>/dev/null \
+    | awk 'match($0,/S:([0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}:[0-9]{2}:[0-9]{2})/,a) {print a[1]" "$0}' \
+    | sort | sed 's/^[^ ]* //')
+
+  rm -f "$pid_file"
+}
+
 analysis() {
   [ ! -f "$TODO_FILE" ] && create_task
 
@@ -65,6 +109,7 @@ case $1 in
   finish) finish_task $2 ;;
   delete) delete_task $2 ;;
   analysis) clear_task && analysis ;;
+  remind) remind ;;
   *) clear_task ;;
 esac
 
