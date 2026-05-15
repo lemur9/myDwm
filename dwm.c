@@ -206,6 +206,12 @@ typedef struct {
   int id;
 } StatusCmd;
 
+typedef struct {
+  unsigned int tags;    /* tag mask, e.g. 1 << 0 */
+  const char *cmd;      /* shell command to spawn */
+  const char *process;  /* process name for pgrep check; NULL to skip */
+} TagCmd;
+
 typedef struct Systray   Systray;
 struct Systray {
   Window win;
@@ -626,6 +632,30 @@ buttonpress(XEvent *e)
     if (click == buttons[i].click && buttons[i].func && buttons[i].button == ev->button
       && CLEANMASK(buttons[i].mask) == CLEANMASK(ev->state))
       buttons[i].func((click == ClkTagBar || click == ClkWinTitle) && buttons[i].arg.i == 0 ? &arg : &buttons[i].arg);
+
+  /* spawn tag app if clicking tag bar with Button1 and no client on that tag */
+  if (click == ClkTagBar && ev->button == Button1 && CLEANMASK(ev->state) == 0) {
+    unsigned int tagmask = arg.ui;
+    int has_client = 0;
+    Monitor *tm;
+    Client *tc;
+    for (tm = mons; tm; tm = tm->next)
+      for (tc = tm->clients; tc; tc = tc->next)
+        if (tc->tags & tagmask) { has_client = 1; break; }
+    if (!has_client)
+      for (i = 0; i < LENGTH(tagcmds); i++)
+        if (tagcmds[i].tags == tagmask && tagcmds[i].cmd) {
+          if (tagcmds[i].process) {
+            char pgcmd[256];
+            snprintf(pgcmd, sizeof(pgcmd), "pgrep -x '%s' > /dev/null 2>&1", tagcmds[i].process);
+            if (system(pgcmd) == 0) break; /* process running, skip spawn */
+          }
+          const char *shcmd[] = { "/bin/sh", "-c", tagcmds[i].cmd, NULL };
+          Arg a = { .v = shcmd };
+          spawn(&a);
+          break;
+        }
+  }
 }
 
 void

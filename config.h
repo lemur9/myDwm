@@ -89,7 +89,7 @@ static const char *dmenucmd[] = { "dmenu_run", "-m", dmenumon, "-fn", dmenufont,
 static const char *termcmd[]  = { "st", NULL };
 
 static const char workspace[] = "/tool/dwm";
-static const char *autostartscript = "$DWM/scripts/utils/task/autostart.sh";
+static const char *autostartscript = "$DWM/scripts/utils/autostart.sh";
 
 /* commands spawned when clicking statusbar, the mouse button pressed is exported as BUTTON */
 static const StatusCmd statuscmds[] = {
@@ -216,6 +216,18 @@ static const Key keys[] = {
   TAGKEYS(                        XK_7,                      6)
   TAGKEYS(                        XK_8,                      7)
   TAGKEYS(                        XK_9,                      8)
+};
+
+/* tag auto-launch: spawn cmd when clicking a tag with no clients on it */
+static const TagCmd tagcmds[] = {
+  /* tags mask       cmd                                               process (pgrep -x) */
+  { 1 << 1,   "st",                                                   NULL },
+  { 1 << 2,   "google-chrome-stable",                                 "chrome" },
+  { 1 << 3,   "linuxqq",                                              "linuxqq" },
+  { 1 << 4,   "wechat",                                               "wechat" },
+  { 1 << 5,   "$DWM/scripts/utils/music/open_music_panel.sh",         NULL },
+  { 1 << 6,   "steam",                                                "steam" },
+  { 1 << 7,   "obs",                                                  "obs" },
 };
 
 /*

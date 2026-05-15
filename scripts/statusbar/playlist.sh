@@ -7,7 +7,7 @@ playlist() {
   mpd_pid=$(pgrep -x mpd)
   mx=`xdotool getmouselocation --shell | grep X= | sed 's/X=//'`
   my=`xdotool getmouselocation --shell | grep Y= | sed 's/Y=//'`
-  [ -n "$pid" ] && kill $pid || ([ -n "$mpd_pid" ] && st -t statusutil_ncmpcpp -g 30x20+$((mx))+$((my + 20)) -c float -e ncmpcpp)
+  [ -n "$pid" ] && kill $pid || ([ -n "$mpd_pid" ] && st -t statusutil_ncmpcpp -g 30x20+$((mx))+$((my + 20)) -c float -e ncmpcpp -c ~/.config/ncmpcpp/config-classic)
 }
 
 play_change() {
