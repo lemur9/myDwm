@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # todo 状态栏目前只显示默认音频入口的音量， 后续调整为类似alsamixer的多音频显示调节界面
-sink_sh=$(cd $(dirname $0);cd ..;pwd)/utils/sound/sink.sh
+mixer_sh=$(cd $(dirname $0);cd ..;pwd)/utils/sound/mixer.sh
 
 update() {
   local input_idx="$1"  # 可选：sink-input id，传入时显示该流的音量
@@ -38,15 +38,19 @@ update() {
   elif [ "$vol_text" -le 50 ]; then vol_icon="";
   else vol_icon=""; fi
 
-  notify-send -r 9527 -h int:value:$vol_text -h string:hlcolor:#dddddd "$vol_icon Volume"
+  local active_count extra_tag=""
+  active_count=$(pactl list short sinks | awk '$5 != "SUSPENDED"' | wc -l)
+  [ "$active_count" -gt 1 ] && extra_tag=" +$(( active_count - 1 ))"
+
+  notify-send -r 9527 -h int:value:$vol_text -h string:hlcolor:#dddddd "$vol_icon Volume${extra_tag}"
 }
 
 settings() {
-  pid=`ps aux | grep 'st -t statusutil_sink_settings' | grep -v grep | awk '{print $2}'`
-  mx=`xdotool getmouselocation --shell | grep X= | sed 's/X=//'`
-  my=`xdotool getmouselocation --shell | grep Y= | sed 's/Y=//'`
+  pid=$(ps aux | grep 'st -t statusutil_sink_settings' | grep -v grep | awk '{print $2}')
+  mx=$(xdotool getmouselocation --shell | grep X= | sed 's/X=//')
+  my=$(xdotool getmouselocation --shell | grep Y= | sed 's/Y=//')
   dunstctl close 9527
-  [ -n "$pid" ] && kill $pid || st -t statusutil_sink_settings -g 50x15+$((mx))+$((my + 20)) -c float -e "$sink_sh" settings
+  [ -n "$pid" ] && kill $pid || st -t statusutil_sink_settings -g 52x12+$((mx))+$((my + 20)) -c float -e "$mixer_sh"
 }
 
 change() {
@@ -267,7 +271,5 @@ if [ -n "$BUTTON" ]; then
 else
   case $1 in
     change) smart_change $2 ;;
-    sinks) sinks ;;
-    get) get_active_sink_inputs ;;
   esac
 fi
