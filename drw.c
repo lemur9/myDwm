@@ -393,7 +393,12 @@ drw_map(Drw *drw, Window win, int x, int y, unsigned int w, unsigned int h)
 		return;
 
 	XCopyArea(drw->dpy, drw->drawable, win, drw->gc, x, y, w, h, x, y);
-	XSync(drw->dpy, False);
+	/* 性能修复：原来是 XSync(False)，每次 bar 重绘都是一次阻塞式 X 往返。
+	 * 鼠标在 bar 上移动时（awesomebar hover）每个 motion 事件触发一次重绘，
+	 * 大量往返会让整个 X 事件队列排水极慢，MapRequest/点击事件全排在后面，
+	 * 表现为"开新窗口要等 1 秒、点击切换很久才响应"。
+	 * X 协议对同一连接保证请求顺序，XFlush 足够，正确性不受影响。 */
+	XFlush(drw->dpy);
 }
 
 unsigned int
