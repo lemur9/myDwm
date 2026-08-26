@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>myDwm · Theme Preview</title>
+<style>
+:root{--bg:#11111b;--surface:#1e1e2e;--hover:#313244;--border:#45475a;--text:#cdd6f4;--muted:#6c7086;--blue:#89b4fa;--mauve:#cba6f7;--red:#f38ba8;--green:#a6e3a1;--teal:#94e2d5;--sky:#89dceb;--yellow:#f9e2af}
+*{box-sizing:border-box} body{margin:0;background:#090912;color:var(--text);font:13px/1.5 "JetBrains Mono","Noto Sans SC",monospace;overflow:hidden}.desktop{height:100vh;min-height:650px;position:relative;background:radial-gradient(circle at 80% 20%,#24203d 0,transparent 34%),radial-gradient(circle at 18% 82%,#152b3d 0,transparent 38%),linear-gradient(135deg,#0b0b14,#11111b 60%,#171323)}
+.bar{height:30px;position:absolute;inset:0 0 auto;display:flex;align-items:stretch;background:rgba(17,17,27,.92);box-shadow:0 8px 24px #05050a80;z-index:30;backdrop-filter:blur(12px)}
+.tags,.status{display:flex;align-items:stretch;gap:3px}.tag{width:36px;display:grid;place-items:center;position:relative;color:var(--muted)}.tag.occupied:after{content:"";position:absolute;width:4px;height:4px;border-radius:50%;background:var(--text);bottom:3px}.tag.active{color:var(--blue);background:var(--surface)}.tag.active:after{content:"";position:absolute;bottom:0;left:9px;right:9px;height:3px;background:var(--blue)}.layout{padding:0 12px;display:grid;place-items:center;color:var(--muted)}.tabs{flex:1;display:flex}.tab{flex:1;max-width:260px;padding:0 12px;display:flex;align-items:center;color:var(--muted);position:relative;white-space:nowrap;overflow:hidden}.tab.active{background:var(--surface);color:var(--blue)}.tab.active:after{content:"";position:absolute;left:8px;right:8px;bottom:0;height:3px;background:var(--blue)}.status{margin-left:auto}.module{padding:0 9px;display:flex;align-items:center;white-space:nowrap}.system{color:var(--sky);background:#192a3a}.music{color:var(--mauve);background:#2a243b}.volume{color:var(--blue);background:#1d2b42}.clock{color:var(--teal);background:#1b3132}.date{color:var(--yellow);background:#322e25}
+.window{position:absolute;background:#11111bf2;border:2px solid var(--border);border-radius:10px;box-shadow:0 18px 45px #05050ab8;overflow:hidden}.window.active{border-color:var(--blue)}.titlebar{height:35px;display:flex;align-items:center;padding:0 13px;background:#1e1e2e;color:var(--muted);border-bottom:1px solid #313244}.dots{display:flex;gap:7px;margin-right:12px}.dots i{width:9px;height:9px;border-radius:50%;background:var(--border)}.dots i:nth-child(1){background:var(--red)}.dots i:nth-child(2){background:var(--yellow)}.dots i:nth-child(3){background:var(--green)}
+.terminal{left:3.5%;top:11%;width:58%;height:78%}.terminal-content{padding:22px;font-size:14px}.prompt{color:var(--mauve)}.path{color:var(--blue)}.cmd{color:var(--text)}.comment{color:var(--muted)}.green{color:var(--green)}.yellow{color:var(--yellow)}.blue{color:var(--blue)}.terminal pre{margin:14px 0 0;white-space:pre-wrap}
+.side{right:3.5%;top:18%;width:31%;height:68%;border-color:var(--border)}.side-content{padding:24px}.side h1{font-size:20px;color:var(--mauve);margin:0 0 6px}.side p{color:var(--muted);margin:0 0 22px}.palette{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.swatch{height:54px;border-radius:8px;display:flex;align-items:end;padding:7px;color:#11111b;font-size:10px;font-weight:700}.features{display:grid;gap:10px;margin-top:22px}.feature{padding:10px 12px;background:#1e1e2e;border-radius:8px;border-left:3px solid var(--blue)}
+.rofi{position:absolute;z-index:20;width:min(590px,55vw);left:50%;top:50%;transform:translate(-28%,-50%);padding:17px;background:#11111bee;border:2px solid var(--mauve);border-radius:14px;box-shadow:0 24px 60px #05050ad9;backdrop-filter:blur(14px)}.search{padding:11px 13px;background:var(--surface);border-radius:9px;color:var(--muted);margin-bottom:11px}.search b{color:var(--blue);margin-right:12px}.results{display:grid;gap:4px}.result{padding:9px 12px;border-radius:9px}.result.selected{background:var(--hover);color:var(--mauve)}.result span{display:inline-block;width:29px;color:var(--blue)}
+.notify{position:absolute;right:18px;top:46px;width:330px;z-index:40;padding:13px;background:#1e1e2eee;border:2px solid var(--blue);border-radius:12px;box-shadow:0 15px 35px #05050a99;backdrop-filter:blur(12px);display:flex;gap:13px}.notify-icon{font-size:27px;color:var(--blue)}.notify b{display:block;margin-bottom:3px}.notify small{color:var(--muted)}.progress{height:7px;background:#313244;border-radius:8px;margin-top:8px;overflow:hidden}.progress i{display:block;height:100%;width:64%;background:var(--blue);border-radius:inherit}.label{position:absolute;left:22px;bottom:16px;color:#6c7086;font-size:11px;letter-spacing:.08em}
+@media(max-width:900px){.music,.tab:not(.active){display:none}.rofi{transform:translate(-50%,-50%);width:70vw}.side{display:none}.terminal{width:90%;left:5%}.notify{display:none}}
+</style>
+</head>
+<body>
+<main class="desktop">
+  <header class="bar">
+    <div class="tags"><div class="tag active">⌂</div><div class="tag occupied"></div><div class="tag occupied">◉</div><div class="tag">Q</div><div class="tag">W</div><div class="tag">♫</div><div class="tag">S</div><div class="tag">●</div><div class="tag">&lt;/&gt;</div></div>
+    <div class="layout">[]=</div>
+    <div class="tabs"><div class="tab active"> terminal — myDwm</div><div class="tab">Browser — GitHub</div></div>
+    <div class="status"><div class="module system">CPU 08% · RAM 36%</div><div class="module music">♫ Night Drive</div><div class="module volume">VOL 64%</div><div class="module clock">21:35</div><div class="module date">Tue 08-25</div></div>
+  </header>
+
+  <section class="window terminal active">
+    <div class="titlebar"><span class="dots"><i></i><i></i><i></i></span>st · ~/myDwm</div>
+    <div class="terminal-content">
+      <div><b class="prompt">❯</b> <span class="path">~/myDwm</span> <span class="cmd">make clean &amp;&amp; make</span></div>
+      <pre><span class="comment"># coordinated dark-glass desktop</span>
+<span class="green">✓</span> dwm bar       <span class="blue">30px · clickable modules</span>
+<span class="green">✓</span> window gaps   <span class="blue">8px inner · 12px outer</span>
+<span class="green">✓</span> compositor    <span class="blue">blur · shadow · 10px corners</span>
+<span class="green">✓</span> launcher      <span class="blue">Rofi fuzzy search</span>
+<span class="green">✓</span> notifications <span class="blue">Dunst urgency colors</span>
+
+<span class="prompt">❯</span> <span class="path">~/myDwm</span> <span class="yellow">theme ready</span> █</pre>
+    </div>
+  </section>
+
+  <section class="window side">
+    <div class="titlebar">Theme system</div>
+    <div class="side-content"><h1>Mocha Glass</h1><p>少量强调色、清晰状态层级、克制的透明与模糊。</p>
+      <div class="palette"><div class="swatch" style="background:#89b4fa">BLUE</div><div class="swatch" style="background:#cba6f7">MAUVE</div><div class="swatch" style="background:#94e2d5">TEAL</div><div class="swatch" style="background:#f38ba8">RED</div></div>
+      <div class="features"><div class="feature">当前 Tag：蓝色底线</div><div class="feature" style="border-color:var(--mauve)">音乐模块：紫色分组</div><div class="feature" style="border-color:var(--red)">紧急状态：粉红提示</div></div>
+    </div>
+  </section>
+
+  <section class="rofi"><div class="search"><b>Apps</b> Search applications…</div><div class="results"><div class="result selected"><span></span>st Terminal</div><div class="result"><span>◉</span>Google Chrome</div><div class="result"><span></span>File Manager</div><div class="result"><span></span>Visual Studio Code</div></div></section>
+
+  <aside class="notify"><div class="notify-icon"></div><div style="flex:1"><b>Volume</b><small>Default output · 64%</small><div class="progress"><i></i></div></div></aside>
+  <div class="label">VISUAL MOCKUP · actual font rendering depends on installed Nerd Fonts</div>
+</main>
+</body>
+</html>

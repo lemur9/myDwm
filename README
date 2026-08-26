@@ -1,5 +1,12 @@
-dwm - dynamic window manager
-============================
+myDwm - themed dynamic window manager
+=====================================
+
+This build includes a coordinated dark glass theme for dwm, Picom, Rofi,
+st and Dunst. See `rice/README.md` for dependencies, installation and
+troubleshooting. The companion status loop is `scripts/statusbar/status.sh`.
+
+Upstream dwm information
+------------------------
 dwm is an extremely fast, small, and dynamic window manager for X.
 
 

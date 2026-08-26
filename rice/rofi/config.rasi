@@ -1,0 +1,152 @@
+configuration {
+    modi:                       "drun,run,window";
+    show-icons:                 true;
+    icon-theme:                 "Papirus-Dark";
+    font:                       "JetBrainsMono Nerd Font 12";
+    display-drun:               "󰀻  Apps";
+    display-run:                "  Run";
+    display-window:             "󰖲  Windows";
+    drun-display-format:        "{name}";
+    hover-select:               true;
+    me-select-entry:            "MousePrimary";
+    me-accept-entry:            "MouseDPrimary";
+    matching:                   "fuzzy";
+    sort:                       true;
+    sorting-method:             "fzf";
+    disable-history:            false;
+    sidebar-mode:               false;
+}
+
+* {
+    bg:                         #11111bee;
+    surface:                    #1e1e2efa;
+    surface-hover:              #313244ff;
+    text:                       #cdd6f4ff;
+    muted:                      #6c7086ff;
+    blue:                       #89b4faff;
+    mauve:                      #cba6f7ff;
+    red:                        #f38ba8ff;
+    transparent:                #00000000;
+
+    background-color:           @transparent;
+    text-color:                 @text;
+    margin:                     0;
+    padding:                    0;
+    spacing:                    0;
+}
+
+window {
+    location:                   center;
+    anchor:                     center;
+    width:                      680px;
+    border:                     2px;
+    border-color:               @mauve;
+    border-radius:              14px;
+    background-color:           @bg;
+    transparency:               "real";
+}
+
+mainbox {
+    padding:                    18px;
+    spacing:                    12px;
+    background-color:           @transparent;
+}
+
+inputbar {
+    children:                   [ prompt, entry ];
+    padding:                    11px 13px;
+    spacing:                    10px;
+    border-radius:              9px;
+    background-color:           @surface;
+}
+
+prompt {
+    text-color:                 @blue;
+    background-color:           @transparent;
+}
+
+entry {
+    placeholder:                "Search applications…";
+    placeholder-color:          @muted;
+    text-color:                 @text;
+    background-color:           @transparent;
+}
+
+listview {
+    columns:                    1;
+    lines:                      8;
+    cycle:                      true;
+    dynamic:                    true;
+    scrollbar:                  false;
+    spacing:                    5px;
+    background-color:           @transparent;
+}
+
+element {
+    children:                   [ element-icon, element-text ];
+    padding:                    10px 12px;
+    spacing:                    12px;
+    border-radius:              9px;
+    background-color:           @transparent;
+    text-color:                 @text;
+}
+
+element normal.normal,
+element alternate.normal {
+    background-color:           @transparent;
+    text-color:                 @text;
+}
+
+element selected.normal {
+    background-color:           @surface-hover;
+    text-color:                 @mauve;
+}
+
+element normal.urgent,
+element selected.urgent {
+    text-color:                 @red;
+}
+
+element normal.active,
+element selected.active {
+    text-color:                 @blue;
+}
+
+element-icon {
+    size:                       26px;
+    background-color:           @transparent;
+}
+
+element-text {
+    vertical-align:             0.5;
+    background-color:           @transparent;
+    text-color:                 inherit;
+}
+
+mode-switcher {
+    spacing:                    6px;
+    background-color:           @transparent;
+}
+
+button {
+    padding:                    8px 12px;
+    border-radius:              8px;
+    background-color:           @surface;
+    text-color:                 @muted;
+}
+
+button selected {
+    background-color:           @surface-hover;
+    text-color:                 @blue;
+}
+
+message {
+    padding:                    10px;
+    border-radius:              8px;
+    background-color:           @surface;
+}
+
+textbox {
+    background-color:           @transparent;
+    text-color:                 @text;
+}

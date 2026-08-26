@@ -72,7 +72,11 @@
 
 /* enums */
 enum { CurNormal, CurResize, CurMove, CurLast }; /* cursor */
-enum { SchemeNorm, SchemeSel, SchemeHov, SchemeHid }; /* color schemes */
+enum {
+  SchemeNorm, SchemeSel, SchemeHov, SchemeHid, SchemeUrg,
+  SchemeStatSystem, SchemeStatMusic, SchemeStatVolume,
+  SchemeStatClock, SchemeStatDate
+}; /* color schemes */
 enum { NetSupported, NetWMName, NetWMState, NetWMCheck,
   NetSystemTray, NetSystemTrayOP, NetSystemTrayOrientation, NetSystemTrayOrientationHorz,
   NetWMFullscreen, NetActiveWindow, NetWMWindowType,
@@ -249,6 +253,11 @@ static Monitor *dirtomon(int dir);
 static Client *bartabclientat(Monitor *m, int px);
 static void drawbar(Monitor *m);
 static void drawbars(void);
+static void drawstatusbar(Monitor *m, int stw);
+static unsigned int statusblockwidth(const char *text);
+static int statuswidth(char *text);
+static int statuscmdat(int px);
+static int statusscheme(unsigned char id);
 static void enternotify(XEvent *e);
 static void expose(XEvent *e);
 static void focus(Client *c);
@@ -410,10 +419,92 @@ tagwidth(int i)
   if (!tagwcache_done) {
     int k;
     for (k = 0; k < LENGTH(tags); k++)
-      tagw[k] = TEXTW(tags[k]);
+      tagw[k] = MAX(tagwidthpx, TEXTW(tags[k]));
     tagwcache_done = 1;
   }
   return tagw[i];
+}
+
+/* 状态文本里的控制字符仍然负责点击分区，同时也选择模块配色。
+ * 每个可见分区使用统一的留白，避免状态栏挤成一条连续字符串。 */
+static unsigned int
+statusblockwidth(const char *text)
+{
+  return text && *text
+    ? drw_fontset_getwidth(drw, text) + 2 * statuspadding
+    : 0;
+}
+
+static int
+statuswidth(char *status)
+{
+  char *text, *s, ch;
+  int blocks = 0, w = 0;
+  unsigned int bw;
+
+  for (text = s = status; ; s++) {
+    if (!*s || (unsigned char)*s < ' ') {
+      ch = *s;
+      *s = '\0';
+      if ((bw = statusblockwidth(text))) {
+        if (blocks++)
+          w += statusgap;
+        w += bw;
+      }
+      *s = ch;
+      if (!ch)
+        break;
+      text = s + 1;
+    }
+  }
+  return w;
+}
+
+static int
+statusscheme(unsigned char id)
+{
+  switch (id) {
+  case 1: return SchemeStatSystem;
+  case 4:
+  case 5: return SchemeStatMusic;
+  case 6: return SchemeStatVolume;
+  case 7: return SchemeStatClock;
+  case 8: return SchemeStatDate;
+  default: return SchemeNorm;
+  }
+}
+
+/* 返回状态栏相对坐标 px 对应的 statuscmd id。 */
+static int
+statuscmdat(int px)
+{
+  char *text, *s, ch;
+  int first = 1, x = 0;
+  unsigned char id = 0;
+  unsigned int bw;
+
+  for (text = s = stext; ; s++) {
+    if (!*s || (unsigned char)*s < ' ') {
+      ch = *s;
+      *s = '\0';
+      if ((bw = statusblockwidth(text))) {
+        if (!first)
+          x += statusgap;
+        if (px >= x && px < x + (int)bw) {
+          *s = ch;
+          return id;
+        }
+        x += bw;
+        first = 0;
+      }
+      *s = ch;
+      if (!ch)
+        break;
+      id = (unsigned char)ch;
+      text = s + 1;
+    }
+  }
+  return 0;
 }
 
 /* compile-time check if all tags fit into an unsigned int bit array. */
@@ -610,25 +701,10 @@ buttonpress(XEvent *e)
       click = ClkLtSymbol;
       /* 2px right padding */
     else if (ev->x > selmon->ww - statusw - stw) {
-      char *text, *s, ch;
       *lastbutton = '0' + ev->button;
-
       x = selmon->ww - statusw - stw;
       click = ClkStatusText;
-
-      statuscmdn = 0;
-      for (text = s = stext; *s && x <= ev->x; s++) {
-        if ((unsigned char) (*s) < ' ') {
-          ch = *s;
-          *s = '\0';
-          x += TEXTW(text) - lrpad;
-          *s = ch;
-          text = s + 1;
-          if (x >= ev->x)
-            break;
-          statuscmdn = ch;
-        }
-      }
+      statuscmdn = statuscmdat(ev->x - x);
     } else {
       c = bartabclientat(m, ev->x);
       if (c) {
@@ -1040,7 +1116,9 @@ drawbartab(Monitor *m, Client *c, int docopy)
 
   if (!bartabgeom(m, c, &x, &w))
     return;
-  if (m->hov == c)
+  if (c->isurgent)
+    scm = SchemeUrg;
+  else if (m->hov == c)
     scm = SchemeHov;
   else if (m->sel == c)
     scm = SchemeSel;
@@ -1050,9 +1128,51 @@ drawbartab(Monitor *m, Client *c, int docopy)
     scm = SchemeNorm;
   drw_setscheme(drw, scheme[scm]);
   drw_text(drw, x, 0, w, bh, lrpad / 2, c->name, 0);
+
+  /* 选中和紧急窗口用细底线表达状态，避免整块高饱和背景。 */
+  if (m->sel == c || c->isurgent) {
+    int inset = MIN(lrpad / 2, MAX(0, (w - 1) / 2));
+    drw_rect(drw, x + inset, bh - tagindicator,
+             MAX(1, w - 2 * inset), tagindicator, 1, 0);
+  }
+
   if (docopy) {
     XCopyArea(drw->dpy, drw->drawable, m->barwin, drw->gc, x, 0, w, bh, x, 0);
     XFlush(drw->dpy);
+  }
+}
+
+static void
+drawstatusbar(Monitor *m, int stw)
+{
+  char *text, *s, ch;
+  int first = 1;
+  int x = m->ww - statusw - stw;
+  unsigned char id = 0;
+  unsigned int bw;
+
+  /* 先清空模块间隔，防止短文本覆盖不掉上一帧。 */
+  drw_setscheme(drw, scheme[SchemeNorm]);
+  drw_rect(drw, x, 0, statusw, bh, 1, 1);
+
+  for (text = s = stext; ; s++) {
+    if (!*s || (unsigned char)*s < ' ') {
+      ch = *s;
+      *s = '\0';
+      if ((bw = statusblockwidth(text))) {
+        if (!first)
+          x += statusgap;
+        drw_setscheme(drw, scheme[statusscheme(id)]);
+        drw_text(drw, x, 0, bw, bh, statuspadding, text, 0);
+        x += bw;
+        first = 0;
+      }
+      *s = ch;
+      if (!ch)
+        break;
+      id = (unsigned char)ch;
+      text = s + 1;
+    }
   }
 }
 
@@ -1060,8 +1180,6 @@ void
 drawbar(Monitor *m)
 {
   int x, w, tw = 0, stw = 0, n = 0;
-  int boxs = drw->fonts->h / 9;
-  int boxw = drw->fonts->h / 6 + 2;
   unsigned int i, occ = 0, urg = 0;
   Client *c;
 
@@ -1071,25 +1189,9 @@ drawbar(Monitor *m)
   if (!m->showbar)
     return;
 
-  /* draw status first so it can be overdrawn by tags later */
-  if (m == selmon) { /* status is only drawn on selected monitor */
-    char *text, *s, ch;
-    drw_setscheme(drw, scheme[SchemeNorm]);
-
-    x = 0;
-    for (text = s = stext; *s; s++) {
-      if ((unsigned char) (*s) < ' ') {
-        ch = *s;
-        *s = '\0';
-        tw = TEXTW(text) - lrpad;
-        drw_text(drw, m->ww - statusw + x - stw, 0, tw, bh, 0, text, 0);
-        x += tw;
-        *s = ch;
-        text = s + 1;
-      }
-    }
-    tw = TEXTW(text) - lrpad + 2;
-    drw_text(drw, m->ww - statusw + x - stw, 0, tw, bh, 0, text, 0);
+  /* 状态栏只画在当前显示器；模块间隔与着色由 drawstatusbar 统一处理。 */
+  if (m == selmon) {
+    drawstatusbar(m, stw);
     tw = statusw;
   }
 
@@ -1103,13 +1205,22 @@ drawbar(Monitor *m)
   }
   x = 0;
   for (i = 0; i < LENGTH(tags); i++) {
+    int selected = m->tagset[m->seltags] & 1 << i;
+    int urgent = urg & 1 << i;
+    int scm = urgent ? SchemeUrg : selected ? SchemeSel : SchemeNorm;
+
     w = tagwidth(i);
-    drw_setscheme(drw, scheme[m->tagset[m->seltags] & 1 << i ? SchemeSel : SchemeNorm]);
-    drw_text(drw, x, 0, w, bh, lrpad / 2, tags[i], urg & 1 << i);
-    if (occ & 1 << i)
-      drw_rect(drw, x + boxs, boxs, boxw, boxw,
-               m == selmon && selmon->sel && selmon->sel->tags & 1 << i,
-               urg & 1 << i);
+    drw_setscheme(drw, scheme[scm]);
+    drw_text(drw, x, 0, w, bh, (w - drw_fontset_getwidth(drw, tags[i])) / 2,
+             tags[i], 0);
+
+    if (selected || urgent) {
+      drw_rect(drw, x + 9, bh - tagindicator,
+               MAX(1, w - 18), tagindicator, 1, 0);
+    } else if (occ & 1 << i) {
+      /* 未选中但有窗口：一个克制的小圆点。 */
+      drw_ellipse(drw, x + w / 2 - 2, bh - 6, 4, 4, 1, 0);
+    }
     x += w;
   }
   w = TEXTW(m->ltsymbol);
@@ -2299,8 +2410,8 @@ setup(void)
   drw = drw_create(dpy, screen, root, sw, sh, visual, depth, cmap);
   if (!drw_fontset_create(drw, fonts, LENGTH(fonts)))
     die("no fonts could be loaded.");
-  lrpad = drw->fonts->h;
-  bh = drw->fonts->h + 2;
+  lrpad = barlrpad;
+  bh = MAX(barheight, drw->fonts->h + 2);
   updategeom();
   /* init atoms */
   utf8string = XInternAtom(dpy, "UTF8_STRING", False);
@@ -2938,23 +3049,9 @@ updatesizehints(Client *c)
 void
 updatestatus(void)
 {
-  if (!gettextprop(root, XA_WM_NAME, stext, sizeof(stext))) {
+  if (!gettextprop(root, XA_WM_NAME, stext, sizeof(stext)))
     strcpy(stext, "dwm-"VERSION);
-    statusw = TEXTW(stext) - lrpad + 2;
-  } else {
-    char *text, *s, ch;
-    statusw = 0;
-    for (text = s = stext; *s; s++) {
-      if ((unsigned char) (*s) < ' ') {
-        ch = *s;
-        *s = '\0';
-        statusw += TEXTW(text) - lrpad;
-        *s = ch;
-        text = s + 1;
-      }
-    }
-    statusw += TEXTW(text) - lrpad + 2;
-  }
+  statusw = statuswidth(stext);
   drawbar(selmon);
   /* 性能修复：状态栏每秒更新一次时没必要重排 systray。
    * 图标停靠/销毁/几何变化时（clientmessage/destroynotify/propertynotify 等）

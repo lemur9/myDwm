@@ -1,44 +1,86 @@
 /* See LICENSE file for copyright and license details. */
 
-/* 外观 */
+/* 外观：Catppuccin Mocha inspired glass theme */
 static const int newclientathead    = 0;        /* 定义新窗口在栈顶还是栈底 */
-static const unsigned int borderpx  = 1;        /* 窗口边界像素 */
-static const unsigned int snap      = 32;       /* 窗口边框捕捉大小,吸附效果范围 */
-static const unsigned int gappih    = 10;       /* 窗口之间的水平间距 */
-static const unsigned int gappiv    = 10;       /* 窗口之间的垂直间距*/
-static const unsigned int gappoh    = 10;       /* 窗口和屏幕边缘之间的水平间距 */
-static const unsigned int gappov    = 10;       /* 窗口和屏幕边缘之间的垂直间距 */
-static const int smartgaps          = 0;        /* 1 表示只有一个窗口时没有外部间距 */
-static const unsigned int systraypinning = 0;   /* 0: sloppy systray follows selected monitor, >0: pin systray to monitor X */
-static const unsigned int systrayspacing = 2;   /* systray spacing */
-static const int systraypinningfailfirst = 1;   /* 1: if pinning fails, display systray on the first monitor, False: display systray on the last monitor*/
-static const int showsystray        = 1;     /* 0 means no systray */
-static const int showbar            = 1;        /* 0 表示不显示状态栏 */
-static const int topbar             = 1;        /* 0 表示底部显示状态栏 */
-static const char *fonts[]          = { "JetBrainsMono Nerd Font Mono:style=medium:size=13", "monospace:size=13" };
-static const char dmenufont[]       = "monospace:size=13";
-static const char col_gray1[]       = "#222222";    // 状态条底色
-static const char col_gray2[]       = "#444444";    // 当static const unsigned int borderpx不为0时，非活动窗口外边框颜色
-static const char col_gray3[]       = "#bbbbbb";    // 当前非活动的title字体颜色
-static const char col_gray4[]       = "#eeeeee";    // 当前活动的title字体颜色
-static const char col_cyan[]        = "#e55555";    // title底色
-static const unsigned int baralpha = 0xd0;
-static const unsigned int borderalpha = OPAQUE;
-static const char *colors[][3]      = {
-  /*               fg         bg         border   */
-  [SchemeNorm] = { col_gray3, col_gray1, col_gray2 },
-  [SchemeSel]  = { col_gray4, col_cyan,  col_cyan  },
-  [SchemeHov]  = { col_gray4, col_cyan,  col_cyan  },
-  [SchemeHid]  = { col_cyan,  col_gray1, col_cyan  },
+static const unsigned int borderpx  = 2;        /* 细强调色边框，Picom 再负责阴影与圆角 */
+static const unsigned int snap      = 32;       /* 窗口边框捕捉范围 */
+static const unsigned int gappih    = 8;        /* 窗口之间的水平间距 */
+static const unsigned int gappiv    = 8;        /* 窗口之间的垂直间距 */
+static const unsigned int gappoh    = 12;       /* 窗口与屏幕边缘的水平间距 */
+static const unsigned int gappov    = 12;       /* 窗口与屏幕边缘的垂直间距 */
+static const int smartgaps          = 1;        /* 单窗口时去掉外部间距 */
+static const unsigned int systraypinning = 0;   /* 0: systray 跟随当前显示器 */
+static const unsigned int systrayspacing = 6;   /* 托盘图标留白 */
+static const int systraypinningfailfirst = 1;
+static const int showsystray        = 1;
+static const int showbar            = 1;
+static const int topbar             = 1;
+
+/* 栏高和留白单独配置，避免字号变化破坏布局。 */
+static const unsigned int barheight       = 30;
+static const unsigned int barlrpad        = 16; /* 文本左右留白总和 */
+static const unsigned int tagwidthpx      = 36; /* Tag 固定点击宽度 */
+static const unsigned int tagindicator    = 3;  /* 当前 Tag / tab 底部指示条 */
+static const unsigned int statuspadding   = 9;  /* 状态模块单侧内边距 */
+static const unsigned int statusgap       = 3;  /* 状态模块之间的间隔 */
+
+static const char *fonts[] = {
+  "JetBrainsMono Nerd Font Mono:style=SemiBold:size=12",
+  "Noto Sans CJK SC:size=11",
+  "monospace:size=12"
 };
-static const unsigned int alphas[][3]      = {
-  /*               fg      bg        border*/
-  [SchemeNorm] = { OPAQUE, baralpha, borderalpha },
-  [SchemeSel]  = { OPAQUE, baralpha, borderalpha },
+
+/* 调色板 */
+static const char col_bg[]          = "#11111b";
+static const char col_surface[]     = "#1e1e2e";
+static const char col_hover[]       = "#313244";
+static const char col_border[]      = "#45475a";
+static const char col_text[]        = "#cdd6f4";
+static const char col_muted[]       = "#6c7086";
+static const char col_blue[]        = "#89b4fa";
+static const char col_lavender[]    = "#b4befe";
+static const char col_mauve[]       = "#cba6f7";
+static const char col_red[]         = "#f38ba8";
+static const char col_teal[]        = "#94e2d5";
+static const char col_sky[]         = "#89dceb";
+static const char col_yellow[]      = "#f9e2af";
+static const char col_stat_system[] = "#192a3a";
+static const char col_stat_music[]  = "#2a243b";
+static const char col_stat_volume[] = "#1d2b42";
+static const char col_stat_clock[]  = "#1b3132";
+static const char col_stat_date[]   = "#322e25";
+
+static const unsigned int baralpha    = 0xea; /* 约 92%，配合 Picom 模糊 */
+static const unsigned int borderalpha = OPAQUE;
+static const char *colors[][3] = {
+  /*                      fg            bg                border */
+  [SchemeNorm]       = { col_text,      col_bg,            col_border   },
+  [SchemeSel]        = { col_blue,      col_surface,       col_blue     },
+  [SchemeHov]        = { col_lavender,  col_hover,         col_lavender },
+  [SchemeHid]        = { col_muted,     col_bg,            col_border   },
+  [SchemeUrg]        = { col_red,       col_surface,       col_red      },
+  [SchemeStatSystem] = { col_sky,       col_stat_system,   col_sky      },
+  [SchemeStatMusic]  = { col_mauve,     col_stat_music,    col_mauve    },
+  [SchemeStatVolume] = { col_blue,      col_stat_volume,   col_blue     },
+  [SchemeStatClock]  = { col_teal,      col_stat_clock,    col_teal     },
+  [SchemeStatDate]   = { col_yellow,    col_stat_date,     col_yellow   },
+};
+static const unsigned int alphas[][3] = {
+  /*                      fg      bg        border */
+  [SchemeNorm]       = { OPAQUE, baralpha, borderalpha },
+  [SchemeSel]        = { OPAQUE, baralpha, borderalpha },
+  [SchemeHov]        = { OPAQUE, baralpha, borderalpha },
+  [SchemeHid]        = { OPAQUE, baralpha, borderalpha },
+  [SchemeUrg]        = { OPAQUE, baralpha, borderalpha },
+  [SchemeStatSystem] = { OPAQUE, baralpha, borderalpha },
+  [SchemeStatMusic]  = { OPAQUE, baralpha, borderalpha },
+  [SchemeStatVolume] = { OPAQUE, baralpha, borderalpha },
+  [SchemeStatClock]  = { OPAQUE, baralpha, borderalpha },
+  [SchemeStatDate]   = { OPAQUE, baralpha, borderalpha },
 };
 
 /* tagging */
-static const char *tags[] = { "󰣇", "", "", "󰘅", "", "", "", "", "" };
+static const char *tags[] = { "󰣇", "", "", "󰘅", "", "", "", "", "" };
 
 static const Rule rules[] = {
   /* xprop(1):
@@ -62,7 +104,7 @@ static const Rule rules[] = {
 /* layout(s) */
 static const float mfact     = 0.55; /* 主区域与堆栈之间的面积配比 */
 static const int nmaster     = 1;    /* number of clients in master area */
-static const int resizehints = 1;    /* 1 means respect size hints in tiled resizals */
+static const int resizehints = 0;    /* 平铺时忽略应用尺寸增量，避免产生难看的空洞 */
 static const int lockfullscreen = 1; /* 1 will force focus on the fullscreen window */
 
 static const Layout layouts[] = {
@@ -84,8 +126,8 @@ static const Layout layouts[] = {
 #define SHCMD(cmd) { .v = (const char*[]){ "/bin/sh", "-c", cmd, NULL } }
 
 /* commands */
-static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() */
-static const char *dmenucmd[] = { "dmenu_run", "-m", dmenumon, "-fn", dmenufont, "-nb", col_gray1, "-nf", col_gray3, "-sb", col_cyan, "-sf", col_gray4, NULL };
+static char dmenumon[2] = "0"; /* spawn() 仍会更新该值；Rofi 自行跟随当前显示器 */
+static const char *dmenucmd[] = { "rofi", "-show", "drun", NULL };
 static const char *termcmd[]  = { "st", NULL };
 
 static const char workspace[] = "/tool/dwm";
@@ -93,12 +135,13 @@ static const char *autostartscript = "$DWM/scripts/utils/autostart.sh";
 
 /* commands spawned when clicking statusbar, the mouse button pressed is exported as BUTTON */
 static const StatusCmd statuscmds[] = {
-  { "notify-send Mouse$BUTTON",             0 },
-  { "$DWM/scripts/statusbar/music.sh",      4 },
-  { "$DWM/scripts/statusbar/playlist.sh",      5 },
-  { "$DWM/scripts/statusbar/vol.sh",        6 },
-  { "$DWM/scripts/statusbar/clock.sh",      7 },
-  { "$DWM/scripts/statusbar/date.sh",       8 },
+  { "notify-send Mouse$BUTTON",                 0 },
+  { "$DWM/scripts/statusbar/system.sh",         1 },
+  { "$DWM/scripts/statusbar/music.sh",          4 },
+  { "$DWM/scripts/statusbar/playlist.sh",       5 },
+  { "$DWM/scripts/statusbar/vol.sh",            6 },
+  { "$DWM/scripts/statusbar/clock.sh",          7 },
+  { "$DWM/scripts/statusbar/date.sh",           8 },
 };
 
 static const char *statuscmd[] = { "/bin/sh", "-c", NULL, NULL };
