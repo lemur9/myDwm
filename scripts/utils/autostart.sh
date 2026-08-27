@@ -13,9 +13,14 @@ if command -v dunst >/dev/null 2>&1 && ! pgrep -x dunst >/dev/null 2>&1; then
   dunst -config "$_configHome/dunst/dunstrc" >/dev/null 2>&1 &
 fi
 
-if command -v xsetroot >/dev/null 2>&1 &&
-   ! pgrep -f "$_statusbarDir/status.sh" >/dev/null 2>&1; then
-  "$_statusbarDir/status.sh" >/dev/null 2>&1 &
+if [[ "${MYDWM_USE_BUNDLED_STATUS:-1}" == 1 ]] &&
+   command -v xsetroot >/dev/null 2>&1; then
+  # Restart one known owner on every dwm start. This also replaces an older
+  # status.sh process left alive across a dwm rebuild/restart.
+  pkill -x slstatus 2>/dev/null || true
+  pkill -x dwmblocks 2>/dev/null || true
+  pkill -f "$_statusbarDir/status.sh" 2>/dev/null || true
+  MYDWM_STATUS_TAKEOVER=1 "$_statusbarDir/status.sh" >/dev/null 2>&1 &
 fi
 
 # 原有的待办任务自动整理；目录不完整时安静跳过。

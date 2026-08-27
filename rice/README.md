@@ -114,7 +114,15 @@ static const char workspace[] = "/tool/dwm";
 
 如果你的目录不同，请修改后重新编译。DWM 启动时会把该值导出为 `$DWM`，状态栏点击命令和 autostart 都依赖它。
 
-不要同时运行 `slstatus`、`dwmblocks` 和本仓库的 `scripts/statusbar/status.sh`，否则它们会互相覆盖根窗口标题。配套 autostart 会自动启动 `status.sh`。
+不要同时运行多个根窗口状态提供者，否则它们会互相覆盖标题，表现为时间和日期来回切换。配套 autostart 默认启动 `status.sh`，并停止已经运行的 `slstatus`/`dwmblocks`；`status.sh` 本身也使用进程锁阻止重复实例。
+
+如果你想继续使用外部状态栏而不是本主题的状态模块，请在启动 DWM 前设置：
+
+```sh
+export MYDWM_USE_BUNDLED_STATUS=0
+```
+
+CPU、内存和音量字段已使用固定宽度，因此数值从一位变成两位或三位时不会推动相邻模块。
 
 状态模块点击行为：
 
