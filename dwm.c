@@ -58,6 +58,7 @@
 #define TAGMASK                 ((1 << LENGTH(tags)) - 1)
 #define TEXTW(X)                (drw_fontset_getwidth(drw, (X)) + lrpad)
 #define SYSTEM_TRAY_REQUEST_DOCK    0
+#define NET_SYSTEM_TRAY_ORIENTATION_HORZ 0
 /* XEMBED messages */
 #define XEMBED_EMBEDDED_NOTIFY      0
 #define XEMBED_WINDOW_ACTIVATE      1
@@ -78,9 +79,9 @@ enum {
   SchemeStatClock, SchemeStatDate
 }; /* color schemes */
 enum { NetSupported, NetWMName, NetWMState, NetWMCheck,
-  NetSystemTray, NetSystemTrayOP, NetSystemTrayOrientation, NetSystemTrayOrientationHorz,
+  NetSystemTray, NetSystemTrayOP, NetSystemTrayOrientation, NetSystemTrayVisual,
   NetWMFullscreen, NetActiveWindow, NetWMWindowType,
-  NetWMWindowTypeDialog, NetClientList, NetLast }; /* EWMH atoms */
+  NetWMWindowTypeDialog, NetWMWindowTypeDock, NetClientList, NetLast }; /* EWMH atoms */
 enum { Manager, Xembed, XembedInfo, XLast }; /* Xembed atoms */
 enum { WMProtocols, WMDelete, WMState, WMTakeFocus, WMLast }; /* default atoms */
 enum { ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle,
@@ -220,11 +221,7 @@ typedef struct Systray   Systray;
 struct Systray {
   Window win;
   Client *icons;
-  GC gc;  /* 修复：复用 GC，避免每次 updatesystray 都 XCreateGC 泄漏 */
-  unsigned int w;      /* 上次布局的总宽度 */
-  unsigned int n;      /* 上次布局的图标数量 */
-  int x, y;            /* 上次布局的位置 */
-  Monitor *m;          /* 上次布局所在的 monitor */
+  GC gc;  /* 与托盘窗口相同 depth 的 GC */
 };
 
 /* function declarations */
@@ -844,18 +841,25 @@ clientmessage(XEvent *e)
       XAddToSaveSet(dpy, c->win);
       XSelectInput(dpy, c->win, StructureNotifyMask | PropertyChangeMask | ResizeRedirectMask);
       XReparentWindow(dpy, c->win, systray->win, 0, 0);
-      /* use parents background color */
-      swa.background_pixel  = scheme[SchemeNorm][ColBg].pixel;
+      XSetWindowBorderWidth(dpy, c->win, 0);
+      /* 32-bit icons need a transparent clear color; legacy 24-bit icons need
+       * the actual tray color or their transparent area becomes pure black. */
+      swa.background_pixel = wa.depth == 32
+        ? 0
+        : scheme[SchemeNorm][ColBg].pixel & 0x00ffffffU;
       XChangeWindowAttributes(dpy, c->win, CWBackPixel, &swa);
       sendevent(c->win, netatom[Xembed], StructureNotifyMask, CurrentTime, XEMBED_EMBEDDED_NOTIFY, 0 , systray->win, XEMBED_EMBEDDED_VERSION);
       /* FIXME not sure if I have to send these events, too */
       sendevent(c->win, netatom[Xembed], StructureNotifyMask, CurrentTime, XEMBED_FOCUS_IN, 0 , systray->win, XEMBED_EMBEDDED_VERSION);
       sendevent(c->win, netatom[Xembed], StructureNotifyMask, CurrentTime, XEMBED_WINDOW_ACTIVATE, 0 , systray->win, XEMBED_EMBEDDED_VERSION);
       sendevent(c->win, netatom[Xembed], StructureNotifyMask, CurrentTime, XEMBED_MODALITY_ON, 0 , systray->win, XEMBED_EMBEDDED_VERSION);
-      XSync(dpy, False);
       resizebarwin(selmon);
       updatesystray();
       setclientstate(c, NormalState);
+      /* Some appindicator bridges map before their first paint. Force one
+       * Expose after the XEmbed handshake so the new (leftmost) icon redraws. */
+      XClearArea(dpy, c->win, 0, 0, 0, 0, True);
+      XSync(dpy, False);
     }
     return;
   }
@@ -2424,13 +2428,14 @@ setup(void)
   netatom[NetSystemTray] = XInternAtom(dpy, "_NET_SYSTEM_TRAY_S0", False);
   netatom[NetSystemTrayOP] = XInternAtom(dpy, "_NET_SYSTEM_TRAY_OPCODE", False);
   netatom[NetSystemTrayOrientation] = XInternAtom(dpy, "_NET_SYSTEM_TRAY_ORIENTATION", False);
-  netatom[NetSystemTrayOrientationHorz] = XInternAtom(dpy, "_NET_SYSTEM_TRAY_ORIENTATION_HORZ", False);
+  netatom[NetSystemTrayVisual] = XInternAtom(dpy, "_NET_SYSTEM_TRAY_VISUAL", False);
   netatom[NetWMName] = XInternAtom(dpy, "_NET_WM_NAME", False);
   netatom[NetWMState] = XInternAtom(dpy, "_NET_WM_STATE", False);
   netatom[NetWMCheck] = XInternAtom(dpy, "_NET_SUPPORTING_WM_CHECK", False);
   netatom[NetWMFullscreen] = XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", False);
   netatom[NetWMWindowType] = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
   netatom[NetWMWindowTypeDialog] = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG", False);
+  netatom[NetWMWindowTypeDock] = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DOCK", False);
   netatom[NetClientList] = XInternAtom(dpy, "_NET_CLIENT_LIST", False);
   xatom[Manager] = XInternAtom(dpy, "MANAGER", False);
   xatom[Xembed] = XInternAtom(dpy, "_XEMBED", False);
@@ -3109,39 +3114,60 @@ void
 updatesystray(void)
 {
   XSetWindowAttributes wa;
+  XWindowAttributes iwa;
   XWindowChanges wc;
+  XClassHint ch = { "dwm-systray", "dwm" };
   Client *i;
   Monitor *m = systraytomon(NULL);
   int x = m->mx + m->mw;
   int y = m->by;
+  unsigned int orientation = NET_SYSTEM_TRAY_ORIENTATION_HORZ;
   unsigned int w = 1;
+  VisualID visualid;
+
   if (!showsystray)
     return;
   if (!systray) {
-    /* init systray */
+    /* Use the same ARGB visual, depth and colormap as the bar. Creating the
+     * tray with XCreateSimpleWindow used the root visual and intermittently
+     * left alpha-aware appindicator icons with an all-black first frame. */
     if (!(systray = (Systray *)calloc(1, sizeof(Systray))))
       die("fatal: could not malloc() %u bytes\n", sizeof(Systray));
-    systray->win = XCreateSimpleWindow(dpy, root, x, m->by, w, bh, 0, 0, scheme[SchemeSel][ColBg].pixel);
-    wa.event_mask        = ButtonPressMask | ExposureMask;
+    wa.event_mask = ButtonPressMask | ExposureMask | SubstructureNotifyMask;
     wa.override_redirect = True;
-    wa.background_pixel  = scheme[SchemeNorm][ColBg].pixel;
-    XSelectInput(dpy, systray->win, SubstructureNotifyMask);
-    XChangeProperty(dpy, systray->win, netatom[NetSystemTrayOrientation], XA_CARDINAL, 32,
-                    PropModeReplace, (unsigned char *)&netatom[NetSystemTrayOrientationHorz], 1);
-    XChangeWindowAttributes(dpy, systray->win, CWEventMask|CWOverrideRedirect|CWBackPixel, &wa);
+    wa.background_pixel = scheme[SchemeNorm][ColBg].pixel;
+    wa.border_pixel = 0;
+    wa.colormap = cmap;
+    systray->win = XCreateWindow(dpy, root, x, m->by, w, bh, 0, depth,
+                                 InputOutput, visual,
+                                 CWEventMask | CWOverrideRedirect | CWBackPixel |
+                                 CWBorderPixel | CWColormap, &wa);
+    XSetClassHint(dpy, systray->win, &ch);
+
+    visualid = XVisualIDFromVisual(visual);
+    XChangeProperty(dpy, systray->win, netatom[NetSystemTrayOrientation],
+                    XA_CARDINAL, 32, PropModeReplace,
+                    (unsigned char *)&orientation, 1);
+    XChangeProperty(dpy, systray->win, netatom[NetSystemTrayVisual],
+                    XA_VISUALID, 32, PropModeReplace,
+                    (unsigned char *)&visualid, 1);
+    XChangeProperty(dpy, systray->win, netatom[NetWMWindowType],
+                    XA_ATOM, 32, PropModeReplace,
+                    (unsigned char *)&netatom[NetWMWindowTypeDock], 1);
     XMapRaised(dpy, systray->win);
     XSetSelectionOwner(dpy, netatom[NetSystemTray], systray->win, CurrentTime);
     if (XGetSelectionOwner(dpy, netatom[NetSystemTray]) == systray->win) {
-      sendevent(root, xatom[Manager], StructureNotifyMask, CurrentTime, netatom[NetSystemTray], systray->win, 0, 0);
+      sendevent(root, xatom[Manager], StructureNotifyMask, CurrentTime,
+                netatom[NetSystemTray], systray->win, 0, 0);
       XSync(dpy, False);
-    }
-    else {
+    } else {
       fprintf(stderr, "dwm: unable to obtain system tray.\n");
       free(systray);
       systray = NULL;
       return;
     }
   }
+
   for (w = 0, i = systray->icons; i; i = i->next) {
     w += systrayspacing;
     i->x = w;
@@ -3149,41 +3175,41 @@ updatesystray(void)
   }
   w = w ? w + systrayspacing : 1;
   x -= w;
-  /* 性能修复：图标集合、总宽度、位置、所在 monitor 都没变时直接返回，
-   * 避免无谓的 X 重排 + XSync 往返 */
-  {
-    unsigned int n = 0;
-    for (i = systray->icons; i; i = i->next)
-      n++;
-    if (systray->w == w && systray->n == n &&
-        systray->x == x && systray->y == y && systray->m == m)
-      return;
-    systray->w = w;
-    systray->n = n;
-    systray->x = x;
-    systray->y = y;
-    systray->m = m;
-  }
+
+  XMoveResizeWindow(dpy, systray->win, x, y, w, bh);
+  wc.x = x;
+  wc.y = y;
+  wc.width = w;
+  wc.height = bh;
+  wc.stack_mode = Above;
+  wc.sibling = m->barwin;
+  XConfigureWindow(dpy, systray->win,
+                   CWX | CWY | CWWidth | CWHeight | CWSibling | CWStackMode,
+                   &wc);
+
+  /* The GC must have the tray drawable's depth (32-bit when ARGB is active). */
+  if (!systray->gc)
+    systray->gc = XCreateGC(dpy, systray->win, 0, NULL);
+  XSetWindowBackground(dpy, systray->win, scheme[SchemeNorm][ColBg].pixel);
+  XSetForeground(dpy, systray->gc, scheme[SchemeNorm][ColBg].pixel);
+  XFillRectangle(dpy, systray->win, systray->gc, 0, 0, w, bh);
+
   for (i = systray->icons; i; i = i->next) {
-    /* make sure the background color stays the same */
-    wa.background_pixel  = scheme[SchemeNorm][ColBg].pixel;
-    XChangeWindowAttributes(dpy, i->win, CWBackPixel, &wa);
-    XMapRaised(dpy, i->win);
+    if (XGetWindowAttributes(dpy, i->win, &iwa)) {
+      wa.background_pixel = iwa.depth == 32
+        ? 0
+        : scheme[SchemeNorm][ColBg].pixel & 0x00ffffffU;
+      XChangeWindowAttributes(dpy, i->win, CWBackPixel, &wa);
+    }
+    XSetWindowBorderWidth(dpy, i->win, 0);
     XMoveResizeWindow(dpy, i->win, i->x, 0, i->w, i->h);
+    XMapRaised(dpy, i->win);
     if (i->mon != m)
       i->mon = m;
   }
-  XMoveResizeWindow(dpy, systray->win, x, y, w, bh);
-  wc.x = x; wc.y = y; wc.width = w; wc.height = bh;
-  wc.stack_mode = Above; wc.sibling = m->barwin;
-  XConfigureWindow(dpy, systray->win, CWX|CWY|CWWidth|CWHeight|CWSibling|CWStackMode, &wc);
-  XMapWindow(dpy, systray->win);
+
+  XMapRaised(dpy, systray->win);
   XMapSubwindows(dpy, systray->win);
-  /* redraw background */
-  if (!systray->gc)
-    systray->gc = XCreateGC(dpy, root, 0, NULL);
-  XSetForeground(dpy, systray->gc, scheme[SchemeNorm][ColBg].pixel);
-  XFillRectangle(dpy, systray->win, systray->gc, 0, 0, w, bh);
   XSync(dpy, False);
 }
 

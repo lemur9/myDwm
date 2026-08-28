@@ -186,3 +186,7 @@ fc-match "JetBrainsMono Nerd Font Mono"
 ```sh
 $DWM/scripts/statusbar/status.sh
 ```
+
+### 托盘最左侧图标偶尔变成纯黑
+
+这版托盘会使用与状态栏一致的 ARGB Visual，并发布 `_NET_SYSTEM_TRAY_VISUAL`；24-bit 和 32-bit 图标使用不同的清屏背景，首次嵌入后还会主动请求一次重绘。Picom 也不会再分别裁切 DWM bar 与 systray 的交界处。更新后需要重新编译 DWM，并完整重启托盘应用；只重载 Picom 不够。
