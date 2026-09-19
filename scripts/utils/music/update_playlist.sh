@@ -2,9 +2,9 @@
 # Download configured NetEase playlists, update MPD once, and report results.
 
 MUSIC_DIR="${MUSIC_DIR:-$HOME/Music}"
-LOCK_FILE="/tmp/mydwm-playlist-sync-${UID}.lock"
-SUCCESS_STAMP="/tmp/mydwm-playlist-sync-${UID}.stamp"
-LOG_FILE="/tmp/mydwm-music-sync-${UID}.log"
+LOCK_FILE="/tmp/dwm-playlist-sync-${UID}.lock"
+SUCCESS_STAMP="/tmp/dwm-playlist-sync-${UID}.stamp"
+LOG_FILE="/tmp/dwm-music-sync-${UID}.log"
 NOTIFY_ID=9530
 COOLDOWN=${MUSIC_SYNC_COOLDOWN:-3600}
 force=0

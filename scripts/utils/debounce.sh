@@ -11,8 +11,7 @@
 NAME="$1"
 COOLDOWN="$2"
 
-LOCKDIR="${XDG_RUNTIME_DIR:-/tmp}"
-LOCKFILE="$LOCKDIR/debounce_$NAME.lock"
+LOCKFILE="/tmp/dwm-debounce-${UID}-${NAME}.lock"
 
 # 检查是否在冷却期
 if [ -f "$LOCKFILE" ]; then

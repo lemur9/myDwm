@@ -7,7 +7,6 @@ VOL_VALUE="--"
 VOL_ICON=""
 MUSIC_TEXT=""
 last_status=""
-lock_dir=""
 
 command -v xsetroot >/dev/null 2>&1 || {
   printf 'status.sh: xsetroot is required\n' >&2
@@ -15,22 +14,9 @@ command -v xsetroot >/dev/null 2>&1 || {
 }
 
 # Only one bundled status process may own the root-window title.
-runtime_dir="${XDG_RUNTIME_DIR:-/tmp}"
-[[ -d "$runtime_dir" && -w "$runtime_dir" ]] || runtime_dir=/tmp
-if command -v flock >/dev/null 2>&1; then
-  exec 9>"$runtime_dir/mydwm-status.lock"
-  flock -n 9 || exit 0
-else
-  lock_dir="$runtime_dir/mydwm-status.lock.d"
-  mkdir "$lock_dir" 2>/dev/null || exit 0
-fi
-
-cleanup() {
-  trap - INT TERM HUP EXIT
-  [[ -n "$lock_dir" ]] && rmdir "$lock_dir" 2>/dev/null
-  exit 0
-}
-trap cleanup INT TERM HUP EXIT
+LOCK_FILE="/tmp/dwm-status-${UID}.lock"
+exec 9>"$LOCK_FILE"
+flock -n 9 || exit 0
 
 # The themed bar is the selected provider by default. Stop the two common
 # root-name writers; otherwise they race with this loop and the bar alternates.
