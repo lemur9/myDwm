@@ -1,5 +1,5 @@
-dwm - dynamic window manager
-============================
+dwm - themed dynamic window manager
+=====================================
 
 This build includes a coordinated dark glass theme for dwm, Picom, Rofi,
 st and Dunst. See `rice/README.md` for dependencies, installation and

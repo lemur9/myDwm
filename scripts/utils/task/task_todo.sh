@@ -38,10 +38,10 @@ _speak() {
 }
 
 remind() {
-  local pid_file="${XDG_RUNTIME_DIR:-/tmp}/todo_remind.pid"
+  local lock_file="/tmp/dwm-todo-remind-${UID}.lock"
 
   # 单实例锁（防重复启动）
-  exec 9>"$pid_file"
+  exec 9>"$lock_file"
   flock -n 9 || exit 0
 
   # 读取所有任务
@@ -80,10 +80,10 @@ remind() {
 }
 
 auto_finish() {
-  local pid_file="${XDG_RUNTIME_DIR:-/tmp}/todo_auto_finish.pid"
+  local lock_file="/tmp/dwm-todo-auto-finish-${UID}.lock"
 
   # 单实例锁
-  exec 9>"$pid_file"
+  exec 9>"$lock_file"
   flock -n 9 || exit 0
 
   local now_ts

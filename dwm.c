@@ -462,8 +462,7 @@ statusscheme(unsigned char id)
 {
   switch (id) {
   case 1: return SchemeStatSystem;
-  case 4:
-  case 5: return SchemeStatMusic;
+  case 4: return SchemeStatMusic;
   case 6: return SchemeStatVolume;
   case 7: return SchemeStatClock;
   case 8: return SchemeStatDate;

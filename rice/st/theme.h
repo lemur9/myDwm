@@ -1,5 +1,5 @@
 /*
- * myDwm appearance block for vanilla st 0.9.x.
+ * dwm appearance block for vanilla st 0.9.x.
  * Replace the declarations with the same names in st's config.h; do not
  * include this file alongside duplicate declarations. See README.md.
  */

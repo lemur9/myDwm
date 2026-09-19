@@ -10,7 +10,7 @@ static const unsigned int gappoh    = 12;       /* 窗口与屏幕边缘的水�
 static const unsigned int gappov    = 12;       /* 窗口与屏幕边缘的垂直间距 */
 static const int smartgaps          = 1;        /* 单窗口时去掉外部间距 */
 static const unsigned int systraypinning = 0;   /* 0: systray 跟随当前显示器 */
-static const unsigned int systrayspacing = 0;   /* 托盘图标留白 */
+static const unsigned int systrayspacing = 0;   /* 托盘图标紧密排列 */
 static const int systraypinningfailfirst = 1;
 static const int showsystray        = 1;
 static const int showbar            = 1;
@@ -22,7 +22,7 @@ static const unsigned int barlrpad        = 16; /* 文本左右留白总和 */
 static const unsigned int tagwidthpx      = 36; /* Tag 固定点击宽度 */
 static const unsigned int tagindicator    = 3;  /* 当前 Tag / tab 底部指示条 */
 static const unsigned int statuspadding   = 9;  /* 状态模块单侧内边距 */
-static const unsigned int statusgap       = 0;  /* 状态模块之间的间隔 */
+static const unsigned int statusgap       = 0;  /* 状态模块无缝连接 */
 
 static const char *fonts[] = {
   "JetBrainsMono Nerd Font Mono:style=SemiBold:size=12",
@@ -138,7 +138,6 @@ static const StatusCmd statuscmds[] = {
   { "notify-send Mouse$BUTTON",                 0 },
   { "$DWM/scripts/statusbar/system.sh",         1 },
   { "$DWM/scripts/statusbar/music.sh",          4 },
-  { "$DWM/scripts/statusbar/playlist.sh",       5 },
   { "$DWM/scripts/statusbar/vol.sh",            6 },
   { "$DWM/scripts/statusbar/clock.sh",          7 },
   { "$DWM/scripts/statusbar/date.sh",           8 },
