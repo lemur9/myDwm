@@ -11,34 +11,34 @@ NOTIFY_ID=9531
 
 notify_music() {
   command -v notify-send >/dev/null 2>&1 || return
-  notify-send -r "$NOTIFY_ID" -t "${3:-2500}" "${1:-Music}" "${2:-}" -i audio-x-generic
+  notify-send -r "$NOTIFY_ID" -t "${3:-2500}" "${1:-音乐}" "${2:-}" -i audio-x-generic
 }
 
 ensure_mpd() {
   command -v mpc >/dev/null 2>&1 || {
-    notify_music "Music" "mpc is not installed."
+    notify_music "音乐" "未安装 mpc。"
     return 1
   }
   if pgrep -x mpd >/dev/null 2>&1; then
     if mpc status >/dev/null 2>&1; then
       return 0
     fi
-    notify_music "Music" "MPD is running but cannot be reached."
+    notify_music "音乐" "MPD 正在运行，但无法连接。"
     return 1
   fi
   command -v mpd >/dev/null 2>&1 || {
-    notify_music "Music" "mpd is not installed."
+    notify_music "音乐" "未安装 mpd。"
     return 1
   }
   mpd >/dev/null 2>&1 || {
-    notify_music "Music" "Failed to start MPD."
+    notify_music "音乐" "MPD 启动失败。"
     return 1
   }
   for _ in {1..20}; do
     mpc status >/dev/null 2>&1 && return 0
     sleep 0.1
   done
-  notify_music "Music" "MPD did not become ready."
+  notify_music "音乐" "MPD 启动超时。"
   return 1
 }
 
@@ -62,7 +62,7 @@ player_window() {
   fi
   ensure_mpd || return
   command -v ncmpcpp >/dev/null 2>&1 || {
-    notify_music "Music" "ncmpcpp is not installed."
+    notify_music "音乐" "未安装 ncmpcpp。"
     return
   }
 
@@ -84,21 +84,21 @@ lyrics_toggle() {
   pids=$(pgrep -f '[l]yrics.sh' 2>/dev/null)
   if [[ -n "$pids" ]]; then
     kill $pids 2>/dev/null
-    notify_music "Lyrics" "Floating lyrics disabled."
+    notify_music "歌词" "悬浮歌词已关闭。"
   elif [[ -x "$LYRICS" ]]; then
     nohup "$LYRICS" open >/dev/null 2>&1 &
-    notify_music "Lyrics" "Floating lyrics enabled."
+    notify_music "歌词" "悬浮歌词已开启。"
   else
-    notify_music "Lyrics" "Lyrics helper was not found."
+    notify_music "歌词" "未找到歌词脚本。"
   fi
 }
 
 update_database() {
   ensure_mpd || return
   if mpc update >/dev/null 2>&1; then
-    notify_music "Music database" "MPD database update requested."
+    notify_music "音乐数据库" "已请求更新 MPD 数据库。"
   else
-    notify_music "Music database" "Failed to update the MPD database."
+    notify_music "音乐数据库" "MPD 数据库更新失败。"
   fi
 }
 
@@ -110,13 +110,13 @@ stop_mpd() {
   [[ -n "$pids" ]] && kill $pids 2>/dev/null
   command -v mpc >/dev/null 2>&1 && mpc stop >/dev/null 2>&1
   pkill -x mpd 2>/dev/null || true
-  [[ "$quiet" == 1 ]] || notify_music "Music" "MPD stopped."
+  [[ "$quiet" == 1 ]] || notify_music "音乐" "MPD 已停止。"
 }
 
 restart_mpd() {
   stop_mpd 1
   if ensure_mpd; then
-    notify_music "Music" "MPD restarted."
+    notify_music "音乐" "MPD 已重启。"
   fi
 }
 
@@ -124,7 +124,7 @@ sync_playlists() {
   if [[ -x "$UPDATE_PLAYLIST" ]]; then
     "$UPDATE_PLAYLIST"
   else
-    notify_music "Playlist sync" "Playlist updater was not found."
+    notify_music "歌单同步" "未找到歌单更新脚本。"
   fi
 }
 
@@ -140,28 +140,28 @@ next_track() {
 
 music_menu() {
   command -v rofi >/dev/null 2>&1 || {
-    notify_music "Music" "Rofi is not installed."
+    notify_music "音乐" "未安装 Rofi。"
     return
   }
   local choice
   choice=$(printf '%s\n' \
-    "󰐊  Play / Pause" \
-    "  Open / Close player" \
-    "󰓇  Toggle lyrics" \
-    "󰑐  Sync playlists" \
-    "󰒍  Update MPD database" \
-    "󰜉  Restart MPD" \
-    "󰓛  Stop MPD" |
-    rofi -dmenu -i -p "Music")
+    "󰐊  播放 / 暂停" \
+    "  打开 / 关闭播放器" \
+    "󰓇  开关悬浮歌词" \
+    "󰑐  同步歌单" \
+    "󰒍  更新 MPD 数据库" \
+    "󰜉  重启 MPD" \
+    "󰓛  停止 MPD" |
+    rofi -dmenu -i -p "音乐")
 
   case "$choice" in
-    *"Play / Pause") player_toggle ;;
-    *"Open / Close player") player_window ;;
-    *"Toggle lyrics") lyrics_toggle ;;
-    *"Sync playlists") sync_playlists ;;
-    *"Update MPD database") update_database ;;
-    *"Restart MPD") restart_mpd ;;
-    *"Stop MPD") stop_mpd ;;
+    *"播放 / 暂停") player_toggle ;;
+    *"打开 / 关闭播放器") player_window ;;
+    *"开关悬浮歌词") lyrics_toggle ;;
+    *"同步歌单") sync_playlists ;;
+    *"更新 MPD 数据库") update_database ;;
+    *"重启 MPD") restart_mpd ;;
+    *"停止 MPD") stop_mpd ;;
   esac
 }
 

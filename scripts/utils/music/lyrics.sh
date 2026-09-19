@@ -37,10 +37,10 @@ play_lyrics() {
   local file="$LYRICS_DIR/${song}.txt"
 
   [[ ! -f "$file" ]] && {
-    notify-send -r "$NOTIFY_ID" "🎵 $song 🎵" "Loading lyrics…"
+    notify-send -r "$NOTIFY_ID" "🎵 $song 🎵" "新歌曲，尝试加载歌词中..."
       sleep 1
       file="$LYRICS_DIR/${song}.txt"
-      [[ ! -f "$file" ]] && notify-send -r "$NOTIFY_ID" -t 2000 "🎵 $song 🎵" "Lyrics file not found."
+      [[ ! -f "$file" ]] && notify-send -r "$NOTIFY_ID" -t 2000 "🎵 $song 🎵" "歌词文件不存在"
     }
 
   while IFS= read -r line; do
