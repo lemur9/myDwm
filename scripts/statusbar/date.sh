@@ -6,30 +6,45 @@ todo_sh=$(cd $(dirname $0);cd ..;pwd)/utils/task/task_todo.sh
 TODAY=$(date +%Y%m%d)
 
 notify() {
-    d1="D:$(date '+%Y-%m-%d')"; d2="D:$(date -d '-1 day ago' '+%Y-%m-%d')"; d3="D:$(date -d '-2 day ago' '+%Y-%m-%d')"
-    # 日历
-    _cal=$(cal --color=always | sed 1,2d | sed 's/..7m/<b><span color="#F38BA8">/;s/..0m/<\/span><\/b>/')
-    # 所有任务数
-    _all=$(cat ~/work/todo/todo_*.md | grep "\- \[ \]" | grep -v "\- \[ \]\sS" | wc -l)
-    # 临期任务数
-    _near3day=$(cat ~/work/todo/todo_*.md | grep "\- \[ \]" | grep "$d2\|$d3" | grep -v "\- \[ \]\sS" | wc -l)
-    # 今日任务数
-    _today=$(cat ~/work/todo/todo_$TODAY.md | grep "\- \[ \]" | grep "$d1" | grep -v "\- \[ \]\sS" | wc -l)
+    local d1 d2 d3 month_title today_day cal_rows cal_markup
+    local open_tasks all_count near_count today_count task_lines stats body
+    d1="D:$(date '+%Y-%m-%d')"
+    d2="D:$(date -d '-1 day ago' '+%Y-%m-%d')"
+    d3="D:$(date -d '-2 day ago' '+%Y-%m-%d')"
 
-    # 今日任务
-    _todaytask=$(cat ~/work/todo/todo_$TODAY.md | grep "\- \[ \]" | grep "$d1" | grep -v "\- \[ \]\sS" | sed 's/- \[ \] /- /' | sed 's/[SD]:.*//')
-    # 兜底任务
-    _fallbacktask=$(cat ~/work/todo/todo_*.md | grep "\- \[ \]" | grep -v "\- \[ \]\sS" | grep -v "$d2\|$d3" | sed 's/- \[ \] //' | sed 's/[SD]:.*//')
+    # Keep the calendar aligned with a monospace span. util-linux cal supplies
+    # Monday-first rows; the header is deliberately Chinese as requested.
+    month_title=$(date '+%Y年%m月')
+    today_day=$(date '+%-d')
+    cal_rows=$(LC_ALL=C cal -m 2>/dev/null | tail -n +3)
+    cal_rows=$(printf '%s\n' "$cal_rows" | sed -E \
+      "s/(^| )(${today_day})( |$)/\\1<span foreground=\"#F38BA8\"><b>\\2<\\/b><\\/span>\\3/")
+    printf -v cal_markup '<tt>     %s\n一 二 三 四 五 六 日\n%s</tt>' \
+      "$month_title" "$cal_rows"
 
-    t1="<b><span color=\"#A6E3A1\">任务:$_all</span></b>"
-    t2="<b><span color=\"#F9E2AF\">临期:$_near3day</span></b>"
-    t3="<b><span color=\"#F38BA8\">今日:$_today</span></b>"
-    _todotext="$t1 $t2 $t3"
+    open_tasks=$(grep -h -- '- \[ \] ' "$HOME"/work/todo/todo_*.md 2>/dev/null |
+      grep -v -- '- \[ \][[:space:]]*S' || true)
+    all_count=$(printf '%s\n' "$open_tasks" | grep -c .)
+    near_count=$(printf '%s\n' "$open_tasks" | grep -c "$d2\|$d3")
+    today_count=$(printf '%s\n' "$open_tasks" | grep -c "$d1")
 
-    [ "$_todaytask" ] && _todaytext="<b><span color=\"#F38BA8\">\n\n$_todaytask</span></b>"
-    [ ! "$_todaytask" ] && _todaytext="<b><span color=\"#CDD6F4\">\n\n$_fallbacktask</span></b>"
+    task_lines=$(printf '%s\n' "$open_tasks" | grep "$d1" |
+      sed 's/- \[ \] /• /;s/[SD]:.*//' | head -5)
+    if [[ -z "$task_lines" ]]; then
+      task_lines=$(printf '%s\n' "$open_tasks" | grep -v "$d2\|$d3" |
+        sed 's/- \[ \] /• /;s/[SD]:.*//' | head -5)
+    fi
+    task_lines=$(printf '%s' "$task_lines" |
+      sed 's/&/\&amp;/g;s/</\&lt;/g;s/>/\&gt;/g')
 
-    notify-send "  Calendar" "\n$_cal\n\n$_todotext$_todaytext" -r 9527
+    stats="<b><span color=\"#A6E3A1\">Tasks ${all_count}</span></b>  <b><span color=\"#F9E2AF\">Due ${near_count}</span></b>  <b><span color=\"#F38BA8\">Today ${today_count}</span></b>"
+    printf -v body '%s\n\n%s' "$cal_markup" "$stats"
+    if [[ -n "$task_lines" ]]; then
+      printf -v body '%s\n\n<span color="#CDD6F4">%s</span>' \
+        "$body" "$task_lines"
+    fi
+
+    notify-send "  Calendar" "$body" -r 9527
 }
 
 call_todo() {
