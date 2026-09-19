@@ -49,15 +49,31 @@ show_summary() {
   notify-send -r 9527 "  ${host:-System}" "$body"
 }
 
+toggle_system_monitor() {
+  local pids monitor
+  pids=$(pgrep -f '(^|/)[s]t -t statusutil_system_monitor( |$)' 2>/dev/null)
+  if [[ -n "$pids" ]]; then
+    while IFS= read -r pid; do
+      [[ "$pid" =~ ^[0-9]+$ ]] && kill "$pid" 2>/dev/null
+    done <<< "$pids"
+    return
+  fi
+
+  if command -v btop >/dev/null 2>&1; then
+    monitor=btop
+  elif command -v htop >/dev/null 2>&1; then
+    monitor=htop
+  else
+    show_summary
+    return
+  fi
+
+  # A stable title/instance makes the next right click find this exact window.
+  st -t statusutil_system_monitor -n statusutil_system_monitor \
+    -c float -e "$monitor" &
+}
+
 case "${BUTTON:-1}" in
-  3)
-    if command -v btop >/dev/null 2>&1; then
-      st -c float -e btop
-    elif command -v htop >/dev/null 2>&1; then
-      st -c float -e htop
-    else
-      show_summary
-    fi
-    ;;
+  3) toggle_system_monitor ;;
   *) show_summary ;;
 esac
