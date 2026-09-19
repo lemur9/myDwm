@@ -28,7 +28,7 @@ get_current_song() {
 
 # 清除歌词通知
 clear_notification() {
-  notify-send -r "$NOTIFY_ID" ""
+  dunstctl close "$NOTIFY_ID"
 }
 
 # 播放歌词（同步 .lrc）

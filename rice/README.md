@@ -36,7 +36,7 @@ rice/
 - 推荐 Papirus Dark 图标主题
 - 状态栏音量需要 `pactl` 或 `wpctl`
 - 音乐控制需要 `mpd`、`mpc`，播放器窗口需要 `ncmpcpp`，网络歌单同步需要 `yun`
-- 日历通知需要支持 `cal -m` 的 util-linux `cal`
+- 日历通知需要 `cal`
 
 Arch Linux 示例：
 

@@ -11,7 +11,7 @@ human_kib() {
 
 show_summary() {
   local host kernel uptime_text cpu
-  local mem_total mem_available mem_used
+  local mem_total mem_available mem_used mem_percent
   local disk_total disk_used disk_available disk_percent
   local memory_text disk_text body
 
@@ -32,13 +32,14 @@ show_summary() {
     END { print total+0, available+0 }
   ' /proc/meminfo)
   mem_used=$((mem_total - mem_available))
-  memory_text="Used $(human_kib "$mem_used") · Available $(human_kib "$mem_available") · Total $(human_kib "$mem_total")"
+  mem_percent=$((100 * mem_used / mem_total))
+  memory_text="$(human_kib "$mem_used") / $(human_kib "$mem_available") / $(human_kib "$mem_total") - ${mem_percent}%"
 
   read -r disk_total disk_used disk_available disk_percent < <(
     LC_ALL=C df -Pk / 2>/dev/null | awk 'NR == 2 { print $2, $3, $4, $5 }'
   )
   if [[ -n "$disk_total" ]]; then
-    disk_text="Used $(human_kib "$disk_used") · Free $(human_kib "$disk_available") · Total $(human_kib "$disk_total") · ${disk_percent} used"
+    disk_text="$(human_kib "$disk_used") / $(human_kib "$disk_available") / $(human_kib "$disk_total") - ${disk_percent}"
   else
     disk_text="Unavailable"
   fi
