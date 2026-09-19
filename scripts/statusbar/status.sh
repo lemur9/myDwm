@@ -20,7 +20,7 @@ flock -n 9 || exit 0
 
 # The themed bar is the selected provider by default. Stop the two common
 # root-name writers; otherwise they race with this loop and the bar alternates.
-if [[ "${MYDWM_STATUS_TAKEOVER:-0}" == 1 ]]; then
+if [[ "${DWM_STATUS_TAKEOVER:-0}" == 1 ]]; then
   pkill -x slstatus 2>/dev/null || true
   pkill -x dwmblocks 2>/dev/null || true
 fi

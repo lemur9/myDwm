@@ -1,4 +1,4 @@
-myDwm theme palette
+dwm theme palette
 
 Base       #11111b
 Surface    #1e1e2e

@@ -1,4 +1,4 @@
-# myDwm 配套主题
+# dwm 配套主题
 
 这套配置使用一套统一的深色玻璃主题：`#11111b` 背景、`#cdd6f4` 正文、蓝色 `#89b4fa` 主强调、紫色 `#cba6f7` 次强调、粉红 `#f38ba8` 紧急状态。
 
@@ -58,7 +58,7 @@ Debian 官方的 JetBrains Mono 通常不包含 Nerd Font 图标，需要额外�
 ## 安装 Picom、Rofi 和 Dunst 配置
 
 ```sh
-cd /path/to/myDwm
+cd /path/to/dwm
 ./rice/install.sh
 ```
 
@@ -121,7 +121,7 @@ static const char workspace[] = "/tool/dwm";
 如果你想继续使用外部状态栏而不是本主题的状态模块，请在启动 DWM 前设置：
 
 ```sh
-export MYDWM_USE_BUNDLED_STATUS=0
+export DWM_USE_BUNDLED_STATUS=0
 ```
 
 内存和音量字段使用固定宽度，因此数值从一位变成两位或三位时不会推动相邻模块。音乐图标始终显示；只有 MPD 正在播放时才附加歌曲名，长标题会截断而不会滚动。
