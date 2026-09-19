@@ -8,7 +8,7 @@ TODAY=$(date +%Y%m%d)
 notify() {
     d1="D:$(date '+%Y-%m-%d')"; d2="D:$(date -d '-1 day ago' '+%Y-%m-%d')"; d3="D:$(date -d '-2 day ago' '+%Y-%m-%d')"
     # 日历
-    _cal=$(cal --color=always | sed 1,2d | sed 's/..7m/<b><span color="#FF79C6">/;s/..0m/<\/span><\/b>/')
+    _cal=$(cal --color=always | sed 1,2d | sed 's/..7m/<b><span color="#F38BA8">/;s/..0m/<\/span><\/b>/')
     # 所有任务数
     _all=$(cat ~/work/todo/todo_*.md | grep "\- \[ \]" | grep -v "\- \[ \]\sS" | wc -l)
     # 临期任务数
@@ -21,13 +21,13 @@ notify() {
     # 兜底任务
     _fallbacktask=$(cat ~/work/todo/todo_*.md | grep "\- \[ \]" | grep -v "\- \[ \]\sS" | grep -v "$d2\|$d3" | sed 's/- \[ \] //' | sed 's/[SD]:.*//')
 
-    t1="<b><span color=\"#54FF9F\">任务:$_all</span></b>"
-    t2="<b><span color=\"#FFB90F\">临期:$_near3day</span></b>"
-    t3="<b><span color=\"#FF79C6\">今日:$_today</span></b>"
+    t1="<b><span color=\"#A6E3A1\">任务:$_all</span></b>"
+    t2="<b><span color=\"#F9E2AF\">临期:$_near3day</span></b>"
+    t3="<b><span color=\"#F38BA8\">今日:$_today</span></b>"
     _todotext="$t1 $t2 $t3"
 
-    [ "$_todaytask" ] && _todaytext="<b><span color=\"#FF79C6\">\n\n$_todaytask</span></b>"
-    [ ! "$_todaytask" ] && _todaytext="<b><span color=\"#FFE0C8DD\">\n\n$_fallbacktask</span></b>"
+    [ "$_todaytask" ] && _todaytext="<b><span color=\"#F38BA8\">\n\n$_todaytask</span></b>"
+    [ ! "$_todaytask" ] && _todaytext="<b><span color=\"#CDD6F4\">\n\n$_fallbacktask</span></b>"
 
     notify-send "  Calendar" "\n$_cal\n\n$_todotext$_todaytext" -r 9527
 }
@@ -64,14 +64,14 @@ task_list() {
     # 计划任务
     _futuretask=$(cat ~/work/todo/todo_*.md | grep "\- \[ \]" | grep -v "\- \[ \]\sS" | awk -F'S:' -v today="$(date +%F)" '{d=substr($2,1,10); if (d > today) print $0}' | sed 's/- \[ \] //' | sed 's/[SD]:.*//')
 
-    t1="<b><span color=\"#54FF9F\">任务:$_all</span></b>"
-    t2="<b><span color=\"#FFB90F\">临期:$_near3day</span></b>"
-    t3="<b><span color=\"#FF79C6\">今日:$_today</span></b>"
+    t1="<b><span color=\"#A6E3A1\">任务:$_all</span></b>"
+    t2="<b><span color=\"#F9E2AF\">临期:$_near3day</span></b>"
+    t3="<b><span color=\"#F38BA8\">今日:$_today</span></b>"
     _todotext="$t1 $t2 $t3\n"
 
-    [ "$_todaytask" ] && _todaytext="<b><span color=\"#FF79C6\">\n$_todaytask</span></b>"
-    [ "$_near3daytask" ] && _near3daytext="<b><span color=\"#FFB90F\">\n$_near3daytask</span></b>"
-    [ ! "$_todaytask" ] && [ ! "$_near3daytask" ] && _todaytext="<b><span color=\"#FF3333\">\n$_overduetask</span></b><b><span color=\"#33CCFF\">\n\n$_futuretask</span></b>"
+    [ "$_todaytask" ] && _todaytext="<b><span color=\"#F38BA8\">\n$_todaytask</span></b>"
+    [ "$_near3daytask" ] && _near3daytext="<b><span color=\"#F9E2AF\">\n$_near3daytask</span></b>"
+    [ ! "$_todaytask" ] && [ ! "$_near3daytask" ] && _todaytext="<b><span color=\"#F38BA8\">\n$_overduetask</span></b><b><span color=\"#89B4FA\">\n\n$_futuretask</span></b>"
 
     notify-send "  TodoList" "$_todotext$_todaytext$_near3daytext" -r 9527
 }
@@ -82,8 +82,8 @@ task_overdue() {
     # 过期任务
     _overduetask=$(cat ~/work/todo/todo_*.md | grep "\- \[ \]" | grep -v "\- \[ \]\sS" | awk -F'D:' -v today="$(date +%F)" '{if ($2 < today) print $0}' | sed 's/- \[ \] //' | sed 's/[SD]:.*//')
 
-    t1="<b><span color=\"#FF3333\">过期任务:$_overdueday</span></b>"
-    _overduetext="<b><span color=\"#FF3333\">\n$_overduetask</span></b>"
+    t1="<b><span color=\"#F38BA8\">过期任务:$_overdueday</span></b>"
+    _overduetext="<b><span color=\"#F38BA8\">\n$_overduetask</span></b>"
     notify-send "  OverdueList" "$t1\n$_overduetext" -r 9527
 }
 
@@ -93,8 +93,8 @@ task_future() {
     # 计划任务
     _futuretask=$(cat ~/work/todo/todo_*.md | grep "\- \[ \]" | grep -v "\- \[ \]\sS" | awk -F'S:' -v today="$(date +%F)" '{d=substr($2,1,10); if (d > today) print $0}' | sed 's/- \[ \] //' | sed 's/[SD]:.*//')
 
-    t1="<b><span color=\"#33CCFF\">计划任务:$_futureday</span></b>"
-    _futuretext="<b><span color=\"#33CCFF\">\n$_futuretask</span></b>"
+    t1="<b><span color=\"#89B4FA\">计划任务:$_futureday</span></b>"
+    _futuretext="<b><span color=\"#89B4FA\">\n$_futuretask</span></b>"
 
     notify-send "  FutureList" "$t1\n$_futuretext" -r 9527
 }

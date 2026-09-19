@@ -42,7 +42,7 @@ update() {
   active_count=$(pactl list short sinks | awk '$5 != "SUSPENDED"' | wc -l)
   [ "$active_count" -gt 1 ] && extra_tag=" +$(( active_count - 1 ))"
 
-  notify-send -r 9527 -h int:value:$vol_text -h string:hlcolor:#dddddd "$vol_icon Volume${extra_tag}"
+  notify-send -r 9527 -h int:value:$vol_text -h string:hlcolor:#89b4fa "$vol_icon Volume${extra_tag}"
 }
 
 settings() {

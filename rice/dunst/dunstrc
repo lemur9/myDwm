@@ -1,0 +1,100 @@
+[global]
+    monitor = 0
+    follow = mouse
+    origin = top-right
+    offset = 18x48
+    width = (320, 480)
+    height = 300
+    notification_limit = 6
+
+    progress_bar = true
+    progress_bar_height = 10
+    progress_bar_frame_width = 0
+    progress_bar_min_width = 160
+    progress_bar_max_width = 360
+    progress_bar_corner_radius = 5
+
+    indicate_hidden = yes
+    transparency = 4
+    separator_height = 2
+    gap_size = 8
+    padding = 14
+    horizontal_padding = 14
+    text_icon_padding = 12
+    frame_width = 2
+    corner_radius = 12
+    icon_corner_radius = 7
+    separator_color = frame
+    sort = yes
+    idle_threshold = 120
+
+    font = JetBrainsMono Nerd Font 11
+    line_height = 3
+    markup = full
+    format = "<b>%s</b>\n%b"
+    alignment = left
+    vertical_alignment = center
+    show_age_threshold = 60
+    ellipsize = middle
+    ignore_newline = no
+    stack_duplicates = true
+    hide_duplicate_count = false
+    show_indicators = yes
+
+    icon_position = left
+    min_icon_size = 32
+    max_icon_size = 48
+    icon_path = /usr/share/icons/Papirus-Dark/16x16/status:/usr/share/icons/Papirus-Dark/32x32/status:/usr/share/icons/Papirus-Dark/48x48/status:/usr/share/icons/hicolor/48x48/apps
+    icon_theme = Papirus-Dark
+    enable_recursive_icon_lookup = true
+
+    sticky_history = yes
+    history_length = 20
+    dmenu = rofi -dmenu -p "Notifications"
+    browser = xdg-open
+    always_run_script = true
+    title = Dunst
+    class = Dunst
+
+    mouse_left_click = close_current
+    mouse_middle_click = do_action, close_current
+    mouse_right_click = close_all
+
+[urgency_low]
+    background = "#11111BEE"
+    foreground = "#A6ADC8"
+    frame_color = "#45475A"
+    highlight = "#89B4FA"
+    timeout = 4
+    default_icon = dialog-information
+
+[urgency_normal]
+    background = "#1E1E2EEE"
+    foreground = "#CDD6F4"
+    frame_color = "#89B4FA"
+    highlight = "#89B4FA"
+    timeout = 7
+    default_icon = dialog-information
+
+[urgency_critical]
+    background = "#2A202CEE"
+    foreground = "#CDD6F4"
+    frame_color = "#F38BA8"
+    highlight = "#F38BA8"
+    timeout = 0
+    default_icon = dialog-error
+
+[volume]
+    summary = "*Volume*"
+    history_ignore = yes
+    timeout = 2
+    frame_color = "#89B4FA"
+    highlight = "#89B4FA"
+
+[calendar]
+    summary = "*Calendar*"
+    timeout = 0
+    frame_color = "#CBA6F7"
+
+[fullscreen_delay_everything]
+    fullscreen = delay

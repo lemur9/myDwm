@@ -1,0 +1,16 @@
+myDwm theme palette
+
+Base       #11111b
+Surface    #1e1e2e
+Hover      #313244
+Border     #45475a
+Muted      #6c7086
+Text       #cdd6f4
+Blue       #89b4fa
+Lavender   #b4befe
+Mauve      #cba6f7
+Red        #f38ba8
+Green      #a6e3a1
+Teal       #94e2d5
+Sky        #89dceb
+Yellow     #f9e2af
