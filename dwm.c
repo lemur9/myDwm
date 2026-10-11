@@ -75,6 +75,7 @@
 enum { CurNormal, CurResize, CurMove, CurLast }; /* cursor */
 enum {
   SchemeNorm, SchemeSel, SchemeHov, SchemeHid, SchemeUrg,
+  SchemeTagAct, SchemeTagUrg, SchemeTagOff, SchemeLt,
   SchemeStatSystem, SchemeStatMusic, SchemeStatVolume,
   SchemeStatClock, SchemeStatDate
 }; /* color schemes */
@@ -224,6 +225,18 @@ struct Systray {
   GC gc;  /* 与托盘窗口相同 depth 的 GC */
 };
 
+/* 悬浮胶囊 bar 的分区几何，全部是 bar 窗口内的相对坐标。
+ * drawbar / bartabgeom / buttonpress / motionnotify 共用同一份，
+ * 避免绘制和点击命中因为各算一遍而对不上。 */
+typedef struct {
+  unsigned int bw;        /* bar 窗口宽度 */
+  unsigned int tagx, tagw;   /* tags 胶囊 */
+  unsigned int ltx, ltw;     /* 布局胶囊 */
+  int tabsx, tabsw;          /* 标题胶囊（放不下时为 0） */
+  int statusx;               /* 状态胶囊组起点 */
+  unsigned int trayx, trayw; /* 托盘胶囊（无图标时 trayw 为 0） */
+} BarGeom;
+
 /* function declarations */
 static void movewin(const Arg *arg);
 static void resizewin(const Arg *arg);
@@ -250,11 +263,18 @@ static Monitor *dirtomon(int dir);
 static Client *bartabclientat(Monitor *m, int px);
 static void drawbar(Monitor *m);
 static void drawbars(void);
-static void drawstatusbar(Monitor *m, int stw);
+static void drawstatusbar(int x);
 static unsigned int statusblockwidth(const char *text);
 static int statuswidth(char *text);
 static int statuscmdat(int px);
 static int statusscheme(unsigned char id);
+static int barwinx(Monitor *m);
+static int barwiny(Monitor *m);
+static unsigned int barwinw(Monitor *m);
+static unsigned int tagblockw(void);
+static BarGeom bargeom(Monitor *m);
+static unsigned long dimpixel(unsigned long p, unsigned int num, unsigned int den);
+static void drawpill(int x, int y, unsigned int w, unsigned int h, unsigned int r, Clr *scm, int border);
 static void enternotify(XEvent *e);
 static void expose(XEvent *e);
 static void focus(Client *c);
@@ -366,7 +386,17 @@ static int statuscmdn;
 static char lastbutton[] = "-";
 static int screen;
 static int sw, sh;           /* X display screen geometry width, height */
-static int bh;               /* bar height */
+static int bh;               /* bar 在布局中占用的总高度（含上下悬浮留白） */
+/* 悬浮胶囊 bar：bar 窗口比胶囊四周各大 barfeather 像素，多出来的部分完全透明，
+ * 留给圆角抗锯齿；胶囊本体在窗口内从 (barfeather, barfeather) 开始画。 */
+static unsigned int barh;    /* bar 窗口高度 = pillh + 2 * barfeather */
+static unsigned int pillh;   /* 胶囊本体高度 */
+static unsigned int pillr;   /* 分区胶囊圆角（按 pillh 收敛后） */
+static unsigned int tagr;    /* 内嵌高亮胶囊圆角 */
+static unsigned int pilly;   /* 胶囊在 bar 窗口内的 y 偏移 */
+static unsigned int trayh;   /* 托盘图标高度 */
+static Clr pillline;         /* 胶囊 1px 高光描边 */
+static Clr traybg;           /* 24bit 托盘图标的不透明底色 */
 static int enablegaps = 1;   /* enables gaps, used by togglegaps */
 static int lrpad;            /* sum of left and right padding for text */
 static int (*xerrorxlib)(Display *, XErrorEvent *);
@@ -410,13 +440,18 @@ static Colormap cmap;
  * 高频指针移动时是纯浪费 */
 static int tagwcache_done = 0;
 static unsigned int tagw[LENGTH(tags)];
+static unsigned int tagpad[LENGTH(tags)];  /* 字形居中用的左内边距，同样是编译期常量 */
 static unsigned int
 tagwidth(int i)
 {
   if (!tagwcache_done) {
     int k;
-    for (k = 0; k < LENGTH(tags); k++)
-      tagw[k] = MAX(tagwidthpx, TEXTW(tags[k]));
+    unsigned int gw;
+    for (k = 0; k < LENGTH(tags); k++) {
+      gw = drw_fontset_getwidth(drw, tags[k]);
+      tagw[k] = MAX(tagwidthpx, gw + lrpad);
+      tagpad[k] = (tagw[k] - gw) / 2;
+    }
     tagwcache_done = 1;
   }
   return tagw[i];
@@ -503,6 +538,136 @@ statuscmdat(int px)
   return 0;
 }
 
+/* ---- 悬浮胶囊 bar 几何 ---- */
+
+/* bar 窗口比胶囊四周各大 barfeather 像素，多出来的一圈是完全透明的，
+ * 用来放圆角抗锯齿层；barmarginx / barmarginy 是胶囊到屏幕边缘的距离。 */
+static int
+barwinx(Monitor *m)
+{
+  return m->wx + (int)barmarginx - (int)barfeather;
+}
+
+static int
+barwiny(Monitor *m)
+{
+  if (!m->showbar)
+    return -(int)barh - 2;
+  return m->by + (int)barmarginy - (int)barfeather;
+}
+
+static unsigned int
+barwinw(Monitor *m)
+{
+  int w = m->ww - 2 * (int)barmarginx + 2 * (int)barfeather;
+
+  return w > 1 ? (unsigned int)w : 1;
+}
+
+static unsigned int
+tagblockw(void)
+{
+  unsigned int i, w = 0;
+
+  for (i = 0; i < LENGTH(tags); i++)
+    w += tagwidth(i);
+  return w;
+}
+
+/* 布局符号宽度也要缓存：bargeom 会被 hover 命中测试高频调用，
+ * 每次现算就是把之前修掉的重绘风暴换成 Xft 测量风暴。 */
+static char ltsymcache[16];
+static unsigned int ltsymw;
+
+static unsigned int
+ltsymbolw(Monitor *m)
+{
+  if (strncmp(m->ltsymbol, ltsymcache, sizeof ltsymcache) != 0) {
+    ltsymw = drw_fontset_getwidth(drw, m->ltsymbol);
+    snprintf(ltsymcache, sizeof ltsymcache, "%s", m->ltsymbol);
+  }
+  return ltsymw;
+}
+
+/* 各分区胶囊的位置与宽度。状态胶囊组始终右对齐（托盘胶囊在最右），
+ * 标题胶囊吃掉中间剩下的空间。
+ * 窄屏 / 状态过长时的降级顺序：先丢标题胶囊，再丢布局胶囊，
+ * 保证右边的时钟、日期永远完整可见。 */
+static BarGeom
+bargeom(Monitor *m)
+{
+  BarGeom g = {0};
+  unsigned int trayraw = 0, right;
+
+  g.bw = barwinw(m);
+  /* 内容区右边界：窗口最外一圈 barfeather 像素是留给抗锯齿的透明边 */
+  right = g.bw > barfeather ? g.bw - barfeather : g.bw;
+
+  g.tagx = barfeather;
+  g.tagw = tagblockw() + 2 * islandpad;
+  g.ltx = g.tagx + g.tagw + islandgap;
+  g.ltw = ltsymbolw(m) + 2 * islandpad;
+
+  if (showsystray && m == systraytomon(m))
+    trayraw = getsystraywidth();
+  /* getsystraywidth() 在没有图标时返回 1，这种情况不画托盘胶囊 */
+  g.trayw = trayraw > 1 ? trayraw + 2 * islandpad : 0;
+  g.trayx = right - g.trayw;
+
+  g.statusx = (int)(g.trayw ? g.trayx - islandgap : right);
+  if (m == selmon && statusw > 0)
+    g.statusx -= statusw;
+
+  g.tabsx = (int)(g.ltx + g.ltw + islandgap);
+  g.tabsw = g.statusx - (int)islandgap - g.tabsx;
+  if (g.tabsw < (int)barheight)
+    g.tabsw = 0;
+  if (g.statusx < (int)(g.ltx + g.ltw + islandgap)) {
+    g.ltw = 0;
+    g.tabsw = 0;
+  }
+  return g;
+}
+
+/* 预乘像素整体按比例调暗：alpha 和 RGB 一起缩，色相不变。
+ * 用于胶囊外侧的圆角抗锯齿过渡层。 */
+static unsigned long
+dimpixel(unsigned long p, unsigned int num, unsigned int den)
+{
+  unsigned int a = (p >> 24) & 0xffU;
+  unsigned int r = (p >> 16) & 0xffU;
+  unsigned int g = (p >> 8) & 0xffU;
+  unsigned int b = p & 0xffU;
+
+  if (!den || num >= den)
+    return p;
+  return ((unsigned long)(a * num / den) << 24)
+       | ((unsigned long)(r * num / den) << 16)
+       | ((unsigned long)(g * num / den) << 8)
+       | (unsigned long)(b * num / den);
+}
+
+/* 画一颗胶囊：外侧若干层渐淡的抗锯齿层 + 本体 + 可选 1px 高光描边。
+ * X 核心协议的弧线没有抗锯齿，靠这几层过渡把锯齿压下去。 */
+static void
+drawpill(int x, int y, unsigned int w, unsigned int h, unsigned int r, Clr *scm, int border)
+{
+  unsigned long bg;
+  unsigned int k;
+
+  if (!scm || w < 1 || h < 1)
+    return;
+  bg = scm[ColBg].pixel;
+  r = MIN(r, MIN(w / 2, h / 2));
+
+  for (k = barfeather; k > 0; k--)
+    drw_fill_rounded(drw, x - (int)k, y - (int)k, w + 2 * k, h + 2 * k, r + k,
+                     dimpixel(bg, barfeather - k + 1, barfeather + 1));
+  drw_fill_rounded(drw, x, y, w, h, r, bg);
+  if (border && barborder)
+    drw_draw_rounded(drw, x, y, w, h, r, pillline.pixel);
+}
+
 /* compile-time check if all tags fit into an unsigned int bit array. */
 struct NumTags { char limitexceeded[LENGTH(tags) > 31 ? -1 : 1]; };
 
@@ -578,10 +743,12 @@ applysizehints(Client *c, int *x, int *y, int *w, int *h, int interact)
     if (*y + *h + 2 * c->bw <= m->wy)
       *y = m->wy;
   }
-  if (*h < bh)
-    *h = bh;
-  if (*w < bh)
-    *w = bh;
+  /* 这个下限是给托盘图标用的（updatesystrayicongeom 也会走到这里）。
+   * 不能用 bh：悬浮胶囊 bar 的 bh 含上下留白，会把普通窗口的最小高度也撑大。 */
+  if (*h < (int)trayh)
+    *h = (int)trayh;
+  if (*w < (int)trayh)
+    *w = (int)trayh;
   if (resizehints || c->isfloating || !c->mon->lt[c->mon->sellt]->arrange) {
     if (!c->hintsvalid)
       updatesizehints(c);
@@ -670,7 +837,7 @@ attachstack(Client *c)
 void
 buttonpress(XEvent *e)
 {
-  unsigned int i, x, click, stw = 0;
+  unsigned int i, click;
   Arg arg = {0};
   Client *c;
   Monitor *m;
@@ -683,30 +850,28 @@ buttonpress(XEvent *e)
     selmon = m;
     focus(NULL);
   }
-  if (showsystray && m == systraytomon(m))
-    stw = getsystraywidth();
   if (ev->window == selmon->barwin) {
-    i = x = 0;
-    do
-    x += tagwidth(i);
-    while (ev->x >= x && ++i < LENGTH(tags));
-    if (i < LENGTH(tags)) {
+    /* ev->x 本来就是 bar 窗口内坐标，分区判定和绘制共用 bargeom，
+     * 胶囊之间的空隙不属于任何分区，点了不算。 */
+    BarGeom g = bargeom(selmon);
+    int off;
+
+    if (ev->x >= (int)g.tagx && ev->x < (int)(g.tagx + g.tagw)) {
+      /* 落在胶囊左右留白上的点击归给最近的那个 tag */
       click = ClkTagBar;
+      off = ev->x - (int)g.tagx - (int)islandpad;
+      for (i = 0; i < LENGTH(tags) - 1 && off >= (int)tagwidth(i); i++)
+        off -= (int)tagwidth(i);
       arg.ui = 1 << i;
-    } else if (ev->x < x + TEXTW(selmon->ltsymbol))
+    } else if (ev->x >= (int)g.ltx && ev->x < (int)(g.ltx + g.ltw)) {
       click = ClkLtSymbol;
-      /* 2px right padding */
-    else if (ev->x > selmon->ww - statusw - stw) {
+    } else if (statusw > 0 && ev->x >= g.statusx && ev->x < g.statusx + statusw) {
       *lastbutton = '0' + ev->button;
-      x = selmon->ww - statusw - stw;
       click = ClkStatusText;
-      statuscmdn = statuscmdat(ev->x - x);
-    } else {
-      c = bartabclientat(m, ev->x);
-      if (c) {
-        click = ClkWinTitle;
-        arg.v = c;
-      }
+      statuscmdn = statuscmdat(ev->x - g.statusx);
+    } else if ((c = bartabclientat(selmon, ev->x))) {
+      click = ClkWinTitle;
+      arg.v = c;
     }
   } else if ((c = wintoclient(ev->window))) {
     focus(c);
@@ -854,6 +1019,7 @@ clientmessage(XEvent *e)
       sendevent(c->win, netatom[Xembed], StructureNotifyMask, CurrentTime, XEMBED_MODALITY_ON, 0 , systray->win, XEMBED_EMBEDDED_VERSION);
       resizebarwin(selmon);
       updatesystray();
+      drawbar(selmon);  /* 托盘图标增减会改变胶囊宽度，bar 要跟着重画 */
       setclientstate(c, NormalState);
       /* Some appindicator bridges map before their first paint. Force one
        * Expose after the XEmbed handshake so the new (leftmost) icon redraws. */
@@ -1008,6 +1174,7 @@ destroynotify(XEvent *e)
     removesystrayicon(c);
     resizebarwin(selmon);
     updatesystray();
+    drawbar(selmon);  /* 托盘图标增减会改变胶囊宽度，bar 要跟着重画 */
   }
 }
 
@@ -1049,20 +1216,19 @@ dirtomon(int dir)
   return m;
 }
 
-/* 计算客户端 c 在 awesomebar 标题区的位置和宽度（与 drawbar 的几何逻辑一致） */
+/* 计算客户端 c 在标题胶囊里的位置和宽度（与 drawbar 共用 bargeom） */
 static int
 bartabgeom(Monitor *m, Client *target, int *xout, int *wout)
 {
-  int x, w, tw = 0, stw = 0, n = 0, i;
-  unsigned int q, r;
+  BarGeom g;
+  int x, usable, q, r, n = 0, i = 0;
   Client *c;
 
   if (!m->showbar)
     return 0;
-  if (showsystray && m == systraytomon(m))
-    stw = getsystraywidth();
-  if (m == selmon)
-    tw = statusw;
+  g = bargeom(m);
+  if (g.tabsw <= 0)
+    return 0;
 
   for (c = m->clients; c; c = c->next)
     if (ISVISIBLE(c))
@@ -1070,27 +1236,24 @@ bartabgeom(Monitor *m, Client *target, int *xout, int *wout)
   if (n == 0)
     return 0;
 
-  x = 0;
-  for (i = 0; i < LENGTH(tags); i++)
-    x += tagwidth(i);
-  x += TEXTW(m->ltsymbol);
+  /* n 个 tab 平分标题胶囊，tab 之间留 tabgap，前 r 个各多 1px */
+  usable = g.tabsw - (n - 1) * (int)tabgap;
+  if (usable < n)
+    usable = n;
+  q = usable / n;
+  r = usable % n;
 
-  w = m->ww - tw - stw - x;
-  if (w <= (int)bh)
-    return 0;
-
-  q = w / n;      /* 基本 tab 宽度 */
-  r = w % n;      /* 前 r 个 tab 各多 1px */
-  i = 0;
+  x = g.tabsx;
   for (c = m->clients; c; c = c->next) {
     if (!ISVISIBLE(c))
       continue;
     if (c == target) {
       *xout = x;
-      *wout = (i < (int)r) ? q + 1 : q;
+      *wout = (i < r) ? q + 1 : q;
       return 1;
     }
-    x += (i < (int)r) ? q + 1 : q;
+    x += (i < r) ? q + 1 : q;
+    x += (int)tabgap;
     i++;
   }
   return 0;
@@ -1115,7 +1278,8 @@ bartabclientat(Monitor *m, int px)
 static void
 drawbartab(Monitor *m, Client *c, int docopy)
 {
-  int x, w, scm;
+  BarGeom g;
+  int x, w, scm, pw;
 
   if (!bartabgeom(m, c, &x, &w))
     return;
@@ -1129,35 +1293,40 @@ drawbartab(Monitor *m, Client *c, int docopy)
     scm = SchemeHid;
   else
     scm = SchemeNorm;
-  drw_setscheme(drw, scheme[scm]);
-  drw_text(drw, x, 0, w, bh, lrpad / 2, c->name, 0);
 
-  /* 选中和紧急窗口用细底线表达状态，避免整块高饱和背景。 */
-  if (m->sel == c || c->isurgent) {
-    int inset = MIN(lrpad / 2, MAX(0, (w - 1) / 2));
-    drw_rect(drw, x + inset, bh - tagindicator,
-             MAX(1, w - 2 * inset), tagindicator, 1, 0);
+  /* 局部刷新前先把标题胶囊的底重画一遍：这个 tab 上一帧可能正高亮着，
+   * 只叠新的一层盖不掉旧胶囊的圆角。底色没有文字，重画很便宜。 */
+  if (docopy) {
+    g = bargeom(m);
+    drawpill(g.tabsx, pilly, g.tabsw, pillh, pillr, scheme[SchemeNorm], 1);
   }
 
+  /* 只有选中 / 悬停 / 紧急的 tab 才有内嵌高亮胶囊，普通 tab 只显示文字，
+   * 免得标题区变成一串药丸。 */
+  pw = w - 2 * (int)pillinset;
+  if ((scm == SchemeSel || scm == SchemeHov || scm == SchemeUrg) && pw >= 6)
+    drawpill(x + (int)pillinset, (int)(pilly + pillinset), (unsigned int)pw,
+             pillh - 2 * pillinset, tagr, scheme[scm], 0);
+
+  drw_setscheme(drw, scheme[scm]);
+  drw_text_nofill(drw, x, pilly, w, pillh, lrpad / 2, c->name, 0);
+
   if (docopy) {
-    XCopyArea(drw->dpy, drw->drawable, m->barwin, drw->gc, x, 0, w, bh, x, 0);
+    XCopyArea(drw->dpy, drw->drawable, m->barwin, drw->gc, x, 0, w, barh, x, 0);
     XFlush(drw->dpy);
   }
 }
 
 static void
-drawstatusbar(Monitor *m, int stw)
+drawstatusbar(int x)
 {
   char *text, *s, ch;
   int first = 1;
-  int x = m->ww - statusw - stw;
   unsigned char id = 0;
   unsigned int bw;
+  int scm;
 
-  /* 先清空模块间隔，防止短文本覆盖不掉上一帧。 */
-  drw_setscheme(drw, scheme[SchemeNorm]);
-  drw_rect(drw, x, 0, statusw, bh, 1, 1);
-
+  /* 整个 bar 窗口在 drawbar 开头已经清成全透明，这里只负责一颗颗胶囊。 */
   for (text = s = stext; ; s++) {
     if (!*s || (unsigned char)*s < ' ') {
       ch = *s;
@@ -1165,8 +1334,10 @@ drawstatusbar(Monitor *m, int stw)
       if ((bw = statusblockwidth(text))) {
         if (!first)
           x += statusgap;
-        drw_setscheme(drw, scheme[statusscheme(id)]);
-        drw_text(drw, x, 0, bw, bh, statuspadding, text, 0);
+        scm = statusscheme(id);
+        drawpill(x, pilly, bw, pillh, pillr, scheme[scm], 1);
+        drw_setscheme(drw, scheme[scm]);
+        drw_text_nofill(drw, x, pilly, bw, pillh, statuspadding, text, 0);
         x += bw;
         first = 0;
       }
@@ -1182,23 +1353,22 @@ drawstatusbar(Monitor *m, int stw)
 void
 drawbar(Monitor *m)
 {
-  int x, w, tw = 0, stw = 0, n = 0;
+  BarGeom g;
+  int x, w, n = 0;
   unsigned int i, occ = 0, urg = 0;
   Client *c;
-
-  if(showsystray && m == systraytomon(m))
-    stw = getsystraywidth();
 
   if (!m->showbar)
     return;
 
-  /* 状态栏只画在当前显示器；模块间隔与着色由 drawstatusbar 统一处理。 */
-  if (m == selmon) {
-    drawstatusbar(m, stw);
-    tw = statusw;
-  }
-
   resizebarwin(m);
+  g = bargeom(m);
+
+  /* 胶囊之间要露出壁纸，所以先把整个 bar 窗口清成全透明。
+   * 没有 32bit visual 时退化成不透明底色，至少不会变黑块。 */
+  drw_fill(drw, 0, 0, g.bw, barh,
+           useargb ? 0UL : scheme[SchemeNorm][ColBg].pixel);
+
   for (c = m->clients; c; c = c->next) {
     if (ISVISIBLE(c))
       n++;
@@ -1206,43 +1376,59 @@ drawbar(Monitor *m)
     if (c->isurgent)
       urg |= c->tags;
   }
-  x = 0;
+
+  /* tags 胶囊：整组一颗，当前 tag 用内嵌高亮胶囊 */
+  drawpill(g.tagx, pilly, g.tagw, pillh, pillr, scheme[SchemeNorm], 1);
+  x = (int)g.tagx + (int)islandpad;
   for (i = 0; i < LENGTH(tags); i++) {
     int selected = m->tagset[m->seltags] & 1 << i;
     int urgent = urg & 1 << i;
-    int scm = urgent ? SchemeUrg : selected ? SchemeSel : SchemeNorm;
+    int occupied = occ & 1 << i;
+    int scm = urgent ? SchemeTagUrg : selected ? SchemeTagAct
+            : occupied ? SchemeNorm : SchemeTagOff;
 
-    w = tagwidth(i);
+    w = (int)tagwidth(i);
+    if ((selected || urgent) && w - 2 * (int)pillinset >= 6)
+      drawpill(x + (int)pillinset, (int)(pilly + pillinset),
+               (unsigned int)(w - 2 * (int)pillinset), pillh - 2 * pillinset,
+               tagr, scheme[scm], 0);
+
     drw_setscheme(drw, scheme[scm]);
-    drw_text(drw, x, 0, w, bh, (w - drw_fontset_getwidth(drw, tags[i])) / 2,
-             tags[i], 0);
+    drw_text_nofill(drw, x, pilly, w, pillh, tagpad[i], tags[i], 0);
 
-    if (selected || urgent) {
-      drw_rect(drw, x + 9, bh - tagindicator,
-               MAX(1, w - 18), tagindicator, 1, 0);
-    } else if (occ & 1 << i) {
-      /* 未选中但有窗口：一个克制的小圆点。 */
-      drw_ellipse(drw, x + w / 2 - 2, bh - 6, 4, 4, 1, 0);
-    }
+    /* 未选中但有窗口：一个克制的小圆点。 */
+    if (!selected && !urgent && occupied)
+      drw_ellipse(drw, x + w / 2 - 2, (int)(pilly + pillh - 7), 4, 4, 1, 0);
     x += w;
   }
-  w = TEXTW(m->ltsymbol);
-  drw_setscheme(drw, scheme[SchemeNorm]);
-  x = drw_text(drw, x, 0, w, bh, lrpad / 2, m->ltsymbol, 0);
 
-  if ((w = m->ww - tw - stw - x) > bh) {
-    if (n > 0) {
-      for (c = m->clients; c; c = c->next)
-        if (ISVISIBLE(c))
-          drawbartab(m, c, 0);
-    } else {
-      drw_setscheme(drw, scheme[SchemeNorm]);
-      drw_rect(drw, x, 0, w, bh, 1, 1);
-    }
+  /* 布局胶囊（窄屏让位给状态模块时宽度为 0，直接不画） */
+  if (g.ltw) {
+    drawpill(g.ltx, pilly, g.ltw, pillh, pillr, scheme[SchemeLt], 1);
+    drw_setscheme(drw, scheme[SchemeLt]);
+    drw_text_nofill(drw, g.ltx, pilly, g.ltw, pillh, islandpad, m->ltsymbol, 0);
   }
+
+  /* 标题胶囊：窗口 tab 平分，选中/悬停/紧急的 tab 有内嵌胶囊 */
+  if (g.tabsw > 0) {
+    drawpill(g.tabsx, pilly, (unsigned int)g.tabsw, pillh, pillr,
+             scheme[SchemeNorm], 1);
+    for (c = m->clients; c; c = c->next)
+      if (ISVISIBLE(c))
+        drawbartab(m, c, 0);
+  }
+
+  /* 状态胶囊组：只画在当前显示器 */
+  if (m == selmon && statusw > 0)
+    drawstatusbar(g.statusx);
+
+  /* 托盘胶囊：托盘窗口自己是全透明的，底色由这里垫 */
+  if (g.trayw)
+    drawpill(g.trayx, pilly, g.trayw, pillh, pillr, scheme[SchemeNorm], 1);
+
   m->bt = n;
-  m->btw = w;
-  drw_map(drw, m->barwin, 0, 0, m->ww - stw, bh);
+  m->btw = g.tabsw;
+  drw_map(drw, m->barwin, 0, 0, g.bw, barh);
 }
 
 void
@@ -1470,7 +1656,9 @@ getsystraywidth()
 {
   unsigned int w = 0;
   Client *i;
-  if(showsystray)
+  /* systray 可能是 NULL：没抢到托盘 selection 时 updatesystray 会把它释放掉，
+   * 而 bargeom/resizebarwin 之后还会反复进来问宽度。 */
+  if(showsystray && systray)
     for(i = systray->icons; i; w += i->w + systrayspacing, i = i->next) ;
   return w ? w + systrayspacing : 1;
 }
@@ -1710,6 +1898,7 @@ maprequest(XEvent *e)
     sendevent(i->win, netatom[Xembed], StructureNotifyMask, CurrentTime, XEMBED_WINDOW_ACTIVATE, 0, systray->win, XEMBED_EMBEDDED_VERSION);
     resizebarwin(selmon);
     updatesystray();
+    drawbar(selmon);  /* 托盘图标增减会改变胶囊宽度，bar 要跟着重画 */
   }
 
   if (!XGetWindowAttributes(dpy, ev->window, &wa) || wa.override_redirect)
@@ -1736,9 +1925,7 @@ monocle(Monitor *m)
 void
 motionnotify(XEvent *e)
 {
-  int x, i;
-  // static Monitor *mon = NULL;
-  Client *c;
+  Client *c, *nhov, *old;
   Monitor *m;
   XMotionEvent *ev = &e->xmotion;
 
@@ -1754,62 +1941,30 @@ motionnotify(XEvent *e)
       m = c ? c->mon : wintomon(ev->window);
       drawbar(m);
     }
-    /*
-    if (ev->window == root) {
-      if ((m = recttomon(ev->x_root, ev->y_root, 1, 1)) != mon && mon) {
-        unfocus(selmon->sel, 1);
-        selmon = m;
-        focus(NULL);
-      }
-      mon = m;
-    }
-*/
     return;
   }
 
-  c = wintoclient(ev->window);
-  m = c ? c->mon : wintomon(ev->window);
-  c = m->clients;
+  /* 只有落在标题胶囊上才有 hover 态：bartabgeom 已经把范围限定在胶囊内，
+   * 命中测试和绘制共用同一份几何，不用再手算 tag / 布局 / 状态区的边界。
+   * 性能修复保留：只在 hover 目标真的变化时局部重绘新旧两个 tab。 */
+  nhov = bartabclientat(selmon, ev->x);
+  if (nhov == selmon->hov)
+    return;
 
-  x = 0, i = 0;
-  do
-  x += tagwidth(i);
-  while (ev->x >= x && ++i < LENGTH(tags));
-  if (i < LENGTH(tags) || ev->x < x + TEXTW(selmon->ltsymbol) || ev->x > selmon->ww - TEXTW(stext) + lrpad - 2) {
-    if (selmon->hov) {
-      if (selmon->hov != selmon->sel)
-        XSetWindowBorder(dpy, selmon->hov->win, scheme[SchemeNorm][ColBorder].pixel);
-      else
-        XSetWindowBorder(dpy, selmon->hov->win, scheme[SchemeSel][ColBorder].pixel);
-      selmon->hov = NULL;
-      drawbar(m);
-    }
-  } else {
-    if (c) {
-      Client *nhov = bartabclientat(m, ev->x);
-      /* 性能修复：只在 hover 目标真正变化时才重绘 bar。
-       * 之前每次指针移动事件都全量重绘（标题 Xft 渲染 + XCopyArea + XSync 往返），
-       * 鼠标在 bar 上移动时会产生重绘风暴，拖慢整个桌面 */
-      if (nhov != selmon->hov) {
-        Client *old = selmon->hov;
-        if (old) {
-          if (old != selmon->sel)
-            XSetWindowBorder(dpy, old->win, scheme[SchemeNorm][ColBorder].pixel);
-          else
-            XSetWindowBorder(dpy, old->win, scheme[SchemeSel][ColBorder].pixel);
-        }
-        selmon->hov = nhov;
-        if (nhov)
-          XSetWindowBorder(dpy, nhov->win, scheme[SchemeHov][ColBorder].pixel);
-        /* 性能修复：hover 变化只局部重绘新旧两个 tab（每个仅 1 个标题），
-         * 不再全量 drawbar。窗口多时全量重绘 × 扫掠 = 秒级卡顿 */
-        if (old)
-          drawbartab(m, old, 1);
-        if (nhov)
-          drawbartab(m, nhov, 1);
-      }
-    }
+  old = selmon->hov;
+  if (old) {
+    if (old != selmon->sel)
+      XSetWindowBorder(dpy, old->win, scheme[SchemeNorm][ColBorder].pixel);
+    else
+      XSetWindowBorder(dpy, old->win, scheme[SchemeSel][ColBorder].pixel);
   }
+  selmon->hov = nhov;
+  if (nhov)
+    XSetWindowBorder(dpy, nhov->win, scheme[SchemeHov][ColBorder].pixel);
+  if (old)
+    drawbartab(selmon, old, 1);
+  if (nhov)
+    drawbartab(selmon, nhov, 1);
 }
 
 void
@@ -1904,6 +2059,7 @@ propertynotify(XEvent *e)
     updatesystrayiconstate(c, ev);
     resizebarwin(selmon);
     updatesystray();
+    drawbar(selmon);  /* 托盘图标增减会改变胶囊宽度，bar 要跟着重画 */
   }
   if ((ev->window == root) && (ev->atom == XA_WM_NAME))
     updatestatus();
@@ -1988,10 +2144,12 @@ resize(Client *c, int x, int y, int w, int h, int interact)
 
 void
 resizebarwin(Monitor *m) {
-  unsigned int w = m->ww;
-  if (showsystray && m == systraytomon(m))
-    w -= getsystraywidth();
-  XMoveResizeWindow(dpy, m->barwin, m->wx, m->by, w, bh);
+  unsigned int w = barwinw(m);
+
+  XMoveResizeWindow(dpy, m->barwin, barwinx(m), barwiny(m), w, barh);
+  /* 画布要装得下最宽的那颗 bar；尺寸够用就不重建 pixmap。 */
+  if (drw->w < w || drw->h < barh)
+    drw_resize(drw, MAX(drw->w, w), MAX(drw->h, barh));
 }
 
 void
@@ -2076,6 +2234,7 @@ resizerequest(XEvent *e)
     updatesystrayicongeom(i, ev->width, ev->height);
     resizebarwin(selmon);
     updatesystray();
+    drawbar(selmon);  /* 托盘图标增减会改变胶囊宽度，bar 要跟着重画 */
   }
 }
 
@@ -2411,10 +2570,23 @@ setup(void)
   root = RootWindow(dpy, screen);
   xinitvisual();
   drw = drw_create(dpy, screen, root, sw, sh, visual, depth, cmap);
+  /* 预乘要在建 scheme 之前设好：颜色是在分配那一刻预乘的。
+   * 没有 32bit visual 时 alpha 根本没人解释，预乘只会让颜色变暗。 */
+  drw_set_premult(drw, barpremult && useargb);
   if (!drw_fontset_create(drw, fonts, LENGTH(fonts)))
     die("no fonts could be loaded.");
   lrpad = barlrpad;
-  bh = MAX(barheight, drw->fonts->h + 2);
+
+  /* 胶囊几何：胶囊本体高度取字号和配置值的较大者；bar 窗口再往外扩
+   * barfeather 像素放圆角抗锯齿层；bh 是布局里预留的总高度（含上下悬浮留白）。
+   * 要求 barmarginy >= barfeather，否则窗口会伸出预留条。 */
+  pillh = MAX(barheight, drw->fonts->h + 2);
+  pilly = barfeather;
+  barh = pillh + 2 * barfeather;
+  pillr = MIN(barradius, pillh / 2);
+  tagr = MIN(tagradius, (pillh - 2 * pillinset) / 2);
+  trayh = pillh > 2 * traypad ? pillh - 2 * traypad : pillh;
+  bh = MAX((int)(pillh + 2 * barmarginy), (int)barh);
   updategeom();
   /* init atoms */
   utf8string = XInternAtom(dpy, "UTF8_STRING", False);
@@ -2447,6 +2619,9 @@ setup(void)
   scheme = ecalloc(LENGTH(colors), sizeof(Clr *));
   for (i = 0; i < LENGTH(colors); i++)
     scheme[i] = drw_scm_create(drw, colors[i], alphas[i], 3);
+  /* 胶囊专用的两个颜色不属于任何 scheme：1px 高光描边、24bit 托盘图标底色 */
+  drw_clr_create(drw, &pillline, col_pillline, linealpha);
+  drw_clr_create(drw, &traybg, col_surface, OPAQUE);
   /* init system tray */
   updatesystray();
   /* init bars */
@@ -2717,19 +2892,10 @@ togglebar(const Arg *arg)
 {
   selmon->showbar = !selmon->showbar;
   updatebarpos(selmon);
-  XMoveResizeWindow(dpy, selmon->barwin, selmon->wx, selmon->by, selmon->ww, bh);
   resizebarwin(selmon);
-  if (showsystray) {
-    XWindowChanges wc;
-    if (!selmon->showbar)
-      wc.y = -bh;
-    else if (selmon->showbar) {
-      wc.y = 0;
-      if (!selmon->topbar)
-        wc.y = selmon->mh - bh;
-    }
-    XConfigureWindow(dpy, systray->win, CWY, &wc);
-  }
+  /* 托盘窗口跟着 bar 一起显隐：barwiny() 在 bar 隐藏时返回屏幕外坐标 */
+  if (showsystray)
+    updatesystray();
   arrange(selmon);
 }
 
@@ -2857,7 +3023,6 @@ unmapnotify(XEvent *e)
 void
 updatebars(void)
 {
-  unsigned int w;
   Monitor *m;
   XSetWindowAttributes wa = {
     .override_redirect = True,
@@ -2870,14 +3035,13 @@ updatebars(void)
   for (m = mons; m; m = m->next) {
     if (m->barwin)
       continue;
-    w = m->ww;
-    if (showsystray && m == systraytomon(m))
-      w -= getsystraywidth();
-    m->barwin = XCreateWindow(dpy, root, m->wx, m->by, m->ww, bh, 0, depth,
+    /* 悬浮胶囊：bar 窗口本身就是内缩的那一圈，胶囊之间完全透明，
+     * 直接露出壁纸。托盘图标在窗口内部，不再靠缩小 bar 宽度让位。 */
+    m->barwin = XCreateWindow(dpy, root, barwinx(m), barwiny(m), barwinw(m), barh, 0, depth,
                               InputOutput, visual,
                               CWOverrideRedirect|CWBackPixel|CWBorderPixel|CWColormap|CWEventMask, &wa);
     XDefineCursor(dpy, m->barwin, cursor[CurNormal]->cursor);
-    if (showsystray && m == systraytomon(m))
+    if (showsystray && systray && m == systraytomon(m))
       XMapRaised(dpy, systray->win);
     XMapRaised(dpy, m->barwin);
     XSelectInput(dpy, m->barwin, ButtonPressMask|PointerMotionMask);
@@ -3065,22 +3229,26 @@ updatestatus(void)
 void
 updatesystrayicongeom(Client *i, int w, int h)
 {
+  /* 图标按胶囊内的可用高度（bar 高度减去上下留白）等比缩放，
+   * 不能用 bh：那是含悬浮留白的布局预留高度，图标会顶出胶囊。 */
+  int th = (int)trayh;
+
   if (i) {
-    i->h = bh;
+    i->h = th;
     if (w == h)
-      i->w = bh;
-    else if (h == bh)
+      i->w = th;
+    else if (h == th)
       i->w = w;
     else
-      i->w = (int) ((float)bh * ((float)w / (float)h));
+      i->w = (int) ((float)th * ((float)w / (float)h));
     applysizehints(i, &(i->x), &(i->y), &(i->w), &(i->h), False);
     /* force icons into the systray dimenons if they don't want to */
-    if (i->h > bh) {
+    if (i->h > th) {
       if (i->w == i->h)
-        i->w = bh;
+        i->w = th;
       else
-        i->w = (int) ((float)bh * ((float)i->w / (float)i->h));
-      i->h = bh;
+        i->w = (int) ((float)th * ((float)i->w / (float)i->h));
+      i->h = th;
     }
   }
 }
@@ -3118,8 +3286,12 @@ updatesystray(void)
   XClassHint ch = { "dwm-systray", "dwm" };
   Client *i;
   Monitor *m = systraytomon(NULL);
-  int x = m->mx + m->mw;
-  int y = m->by;
+  BarGeom g = bargeom(m);
+  /* 托盘窗口盖在托盘胶囊正上方：胶囊底色由 bar 窗口垫，这里只摆图标，
+   * 所以窗口自身必须完全透明，否则会在胶囊里看到一块方角深色矩形。 */
+  unsigned long traypixel = useargb ? 0UL : traybg.pixel;
+  int x = barwinx(m) + (int)g.trayx + (int)islandpad;
+  int y = barwiny(m);
   unsigned int orientation = NET_SYSTEM_TRAY_ORIENTATION_HORZ;
   unsigned int w = 1;
   VisualID visualid;
@@ -3134,10 +3306,10 @@ updatesystray(void)
       die("fatal: could not malloc() %u bytes\n", sizeof(Systray));
     wa.event_mask = ButtonPressMask | ExposureMask | SubstructureNotifyMask;
     wa.override_redirect = True;
-    wa.background_pixel = scheme[SchemeNorm][ColBg].pixel;
+    wa.background_pixel = traypixel;
     wa.border_pixel = 0;
     wa.colormap = cmap;
-    systray->win = XCreateWindow(dpy, root, x, m->by, w, bh, 0, depth,
+    systray->win = XCreateWindow(dpy, root, x, y, w, barh, 0, depth,
                                  InputOutput, visual,
                                  CWEventMask | CWOverrideRedirect | CWBackPixel |
                                  CWBorderPixel | CWColormap, &wa);
@@ -3173,13 +3345,12 @@ updatesystray(void)
     w += i->w;
   }
   w = w ? w + systrayspacing : 1;
-  x -= w;
 
-  XMoveResizeWindow(dpy, systray->win, x, y, w, bh);
+  XMoveResizeWindow(dpy, systray->win, x, y, w, barh);
   wc.x = x;
   wc.y = y;
   wc.width = w;
-  wc.height = bh;
+  wc.height = barh;
   wc.stack_mode = Above;
   wc.sibling = m->barwin;
   XConfigureWindow(dpy, systray->win,
@@ -3189,19 +3360,24 @@ updatesystray(void)
   /* The GC must have the tray drawable's depth (32-bit when ARGB is active). */
   if (!systray->gc)
     systray->gc = XCreateGC(dpy, systray->win, 0, NULL);
-  XSetWindowBackground(dpy, systray->win, scheme[SchemeNorm][ColBg].pixel);
-  XSetForeground(dpy, systray->gc, scheme[SchemeNorm][ColBg].pixel);
-  XFillRectangle(dpy, systray->win, systray->gc, 0, 0, w, bh);
+  XSetWindowBackground(dpy, systray->win, traypixel);
+  XSetForeground(dpy, systray->gc, traypixel);
+  XFillRectangle(dpy, systray->win, systray->gc, 0, 0, w, barh);
 
   for (i = systray->icons; i; i = i->next) {
     if (XGetWindowAttributes(dpy, i->win, &iwa)) {
+      /* 32bit 图标自带透明通道；24bit 图标的透明区要填胶囊底色，
+       * 否则会变成纯黑方块。 */
       wa.background_pixel = iwa.depth == 32
         ? 0
-        : scheme[SchemeNorm][ColBg].pixel & 0x00ffffffU;
+        : traybg.pixel & 0x00ffffffU;
       XChangeWindowAttributes(dpy, i->win, CWBackPixel, &wa);
     }
     XSetWindowBorderWidth(dpy, i->win, 0);
-    XMoveResizeWindow(dpy, i->win, i->x, 0, i->w, i->h);
+    /* 图标在胶囊里垂直居中 */
+    XMoveResizeWindow(dpy, i->win, i->x,
+                      (int)barh > (int)i->h ? ((int)barh - (int)i->h) / 2 : 0,
+                      i->w, i->h);
     XMapRaised(dpy, i->win);
     if (i->mon != m)
       i->mon = m;

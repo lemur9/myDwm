@@ -186,6 +186,8 @@ drw_fontset_free(Fnt *font)
 void
 drw_clr_create(Drw *drw, Clr *dest, const char *clrname, unsigned int alpha)
 {
+	unsigned int r, g, b;
+
 	if (!drw || !dest || !clrname)
 		return;
 
@@ -194,6 +196,20 @@ drw_clr_create(Drw *drw, Clr *dest, const char *clrname, unsigned int alpha)
 		die("error, cannot allocate color '%s'", clrname);
 
     dest->pixel = (dest->pixel & 0x00ffffffU) | (alpha << 24);
+
+	/* ARGB 窗口内容按“预乘 alpha”解释（Xft / 合成器都是这个约定）。
+	 * 核心协议的 XFillRectangle 只是原样写入像素，不做混合，所以这里
+	 * 自己把 RGB 按 alpha 缩一遍，低 alpha 的胶囊颜色才会是真正的半透明，
+	 * 而不是“颜色全强度 + 背景透过来”的偏浓效果。 */
+	if (drw->premult && alpha < 0xffU) {
+		r = (dest->pixel >> 16) & 0xffU;
+		g = (dest->pixel >> 8) & 0xffU;
+		b = dest->pixel & 0xffU;
+		dest->pixel = ((unsigned long)alpha << 24)
+		            | ((unsigned long)(r * alpha / 255) << 16)
+		            | ((unsigned long)(g * alpha / 255) << 8)
+		            | (unsigned long)(b * alpha / 255);
+	}
 }
 
 /* Wrapper to create color schemes. The caller has to call free(3) on the
@@ -228,6 +244,13 @@ drw_setscheme(Drw *drw, Clr *scm)
 }
 
 void
+drw_set_premult(Drw *drw, int on)
+{
+	if (drw)
+		drw->premult = on ? 1 : 0;
+}
+
+void
 drw_rect(Drw *drw, int x, int y, unsigned int w, unsigned int h, int filled, int invert)
 {
 	if (!drw || !drw->scheme)
@@ -251,8 +274,90 @@ drw_ellipse(Drw *drw, int x, int y, unsigned int w, unsigned int h, int filled, 
 		XDrawArc(drw->dpy, drw->drawable, drw->gc, x, y, w - 1, h - 1, 0, 360 * 64);
 }
 
-int
-drw_text(Drw *drw, int x, int y, unsigned int w, unsigned int h, unsigned int lpad, const char *text, int invert)
+void
+drw_fill(Drw *drw, int x, int y, unsigned int w, unsigned int h, unsigned long pixel)
+{
+	if (!drw || !w || !h)
+		return;
+	XSetForeground(drw->dpy, drw->gc, pixel);
+	XFillRectangle(drw->dpy, drw->drawable, drw->gc, x, y, w, h);
+}
+
+/* 填充圆角矩形（胶囊）。核心协议没有路径填充，只能用
+ * “中间十字 + 四个扇形角”拼出来。XFillArc 默认是 ArcChord（弓形），
+ * 会把直角部分切掉，必须切成 ArcPieSlice（扇形）才是圆角。
+ * 坐标可能为负（抗锯齿外扩层），所以内部一律用 int 运算。 */
+void
+drw_fill_rounded(Drw *drw, int x, int y, unsigned int w, unsigned int h, unsigned int r, unsigned long pixel)
+{
+	int iw = (int)w, ih = (int)h, ir = (int)r;
+
+	if (!drw || iw < 1 || ih < 1)
+		return;
+	if (ir * 2 > iw)
+		ir = iw / 2;
+	if (ir * 2 > ih)
+		ir = ih / 2;
+
+	XSetForeground(drw->dpy, drw->gc, pixel);
+	if (ir < 1) {
+		XFillRectangle(drw->dpy, drw->drawable, drw->gc, x, y,
+		               (unsigned int)iw, (unsigned int)ih);
+		return;
+	}
+
+	XFillRectangle(drw->dpy, drw->drawable, drw->gc, x + ir, y,
+	               (unsigned int)(iw - 2 * ir), (unsigned int)ih);
+	XFillRectangle(drw->dpy, drw->drawable, drw->gc, x, y + ir,
+	               (unsigned int)ir, (unsigned int)(ih - 2 * ir));
+	XFillRectangle(drw->dpy, drw->drawable, drw->gc, x + iw - ir, y + ir,
+	               (unsigned int)ir, (unsigned int)(ih - 2 * ir));
+
+	XSetArcMode(drw->dpy, drw->gc, ArcPieSlice);
+	XFillArc(drw->dpy, drw->drawable, drw->gc, x, y,
+	         2 * ir, 2 * ir, 90 * 64, 90 * 64);
+	XFillArc(drw->dpy, drw->drawable, drw->gc, x + iw - 2 * ir, y,
+	         2 * ir, 2 * ir, 0, 90 * 64);
+	XFillArc(drw->dpy, drw->drawable, drw->gc, x, y + ih - 2 * ir,
+	         2 * ir, 2 * ir, 180 * 64, 90 * 64);
+	XFillArc(drw->dpy, drw->drawable, drw->gc, x + iw - 2 * ir, y + ih - 2 * ir,
+	         2 * ir, 2 * ir, 270 * 64, 90 * 64);
+}
+
+/* 1px 圆角描边：胶囊的高光边，玻璃感主要靠它 */
+void
+drw_draw_rounded(Drw *drw, int x, int y, unsigned int w, unsigned int h, unsigned int r, unsigned long pixel)
+{
+	int iw = (int)w, ih = (int)h, ir = (int)r;
+
+	if (!drw || iw < 2 || ih < 2)
+		return;
+	if (ir * 2 > iw - 1)
+		ir = (iw - 1) / 2;
+	if (ir * 2 > ih - 1)
+		ir = (ih - 1) / 2;
+
+	XSetForeground(drw->dpy, drw->gc, pixel);
+	if (ir < 1) {
+		XDrawRectangle(drw->dpy, drw->drawable, drw->gc, x, y,
+		               (unsigned int)(iw - 1), (unsigned int)(ih - 1));
+		return;
+	}
+
+	/* 直边各画过头 1px 和角弧搭接，避免弧线栅格化留下缺口 */
+	XDrawLine(drw->dpy, drw->drawable, drw->gc, x + ir - 1, y, x + iw - ir, y);
+	XDrawLine(drw->dpy, drw->drawable, drw->gc, x + ir - 1, y + ih - 1, x + iw - ir, y + ih - 1);
+	XDrawLine(drw->dpy, drw->drawable, drw->gc, x, y + ir - 1, x, y + ih - ir);
+	XDrawLine(drw->dpy, drw->drawable, drw->gc, x + iw - 1, y + ir - 1, x + iw - 1, y + ih - ir);
+	XDrawArc(drw->dpy, drw->drawable, drw->gc, x, y, 2 * ir, 2 * ir, 90 * 64, 90 * 64);
+	XDrawArc(drw->dpy, drw->drawable, drw->gc, x + iw - 2 * ir, y, 2 * ir, 2 * ir, 0, 90 * 64);
+	XDrawArc(drw->dpy, drw->drawable, drw->gc, x, y + ih - 2 * ir, 2 * ir, 2 * ir, 180 * 64, 90 * 64);
+	XDrawArc(drw->dpy, drw->drawable, drw->gc, x + iw - 2 * ir, y + ih - 2 * ir,
+	         2 * ir, 2 * ir, 270 * 64, 90 * 64);
+}
+
+static int
+drw_text_core(Drw *drw, int x, int y, unsigned int w, unsigned int h, unsigned int lpad, const char *text, int invert, int fillbg)
 {
 	int i, ty, ellipsis_x = 0;
 	unsigned int tmpw, ew, ellipsis_w = 0, ellipsis_len;
@@ -277,8 +382,10 @@ drw_text(Drw *drw, int x, int y, unsigned int w, unsigned int h, unsigned int lp
 	if (!render) {
 		w = invert ? invert : ~invert;
 	} else {
-		XSetForeground(drw->dpy, drw->gc, drw->scheme[invert ? ColFg : ColBg].pixel);
-		XFillRectangle(drw->dpy, drw->drawable, drw->gc, x, y, w, h);
+		if (fillbg) {
+			XSetForeground(drw->dpy, drw->gc, drw->scheme[invert ? ColFg : ColBg].pixel);
+			XFillRectangle(drw->dpy, drw->drawable, drw->gc, x, y, w, h);
+		}
 		d = XftDrawCreate(drw->dpy, drw->drawable, drw->visual, drw->cmap);
 		x += lpad;
 		w -= lpad;
@@ -340,7 +447,7 @@ drw_text(Drw *drw, int x, int y, unsigned int w, unsigned int h, unsigned int lp
 			w -= ew;
 		}
 		if (render && overflow)
-			drw_text(drw, ellipsis_x, y, ellipsis_w, h, 0, "...", invert);
+			drw_text_core(drw, ellipsis_x, y, ellipsis_w, h, 0, "...", invert, fillbg);
 
 		if (!*text || overflow) {
 			break;
@@ -396,6 +503,18 @@ no_match:
 		XftDrawDestroy(d);
 
 	return x + (render ? w : 0);
+}
+
+int
+drw_text(Drw *drw, int x, int y, unsigned int w, unsigned int h, unsigned int lpad, const char *text, int invert)
+{
+	return drw_text_core(drw, x, y, w, h, lpad, text, invert, 1);
+}
+
+int
+drw_text_nofill(Drw *drw, int x, int y, unsigned int w, unsigned int h, unsigned int lpad, const char *text, int invert)
+{
+	return drw_text_core(drw, x, y, w, h, lpad, text, invert, 0);
 }
 
 void

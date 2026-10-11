@@ -27,6 +27,7 @@ typedef struct {
 	GC gc;
 	Clr *scheme;
 	Fnt *fonts;
+	int premult;
 } Drw;
 
 /* Drawable abstraction */
@@ -52,11 +53,20 @@ void drw_cur_free(Drw *drw, Cur *cursor);
 /* Drawing context manipulation */
 void drw_setfontset(Drw *drw, Fnt *set);
 void drw_setscheme(Drw *drw, Clr *scm);
+/* 半透明颜色是否按 alpha 预乘。ARGB 窗口内容在合成器里按预乘解释，
+ * 不预乘的话低 alpha 的颜色会明显偏浓。 */
+void drw_set_premult(Drw *drw, int on);
 
 /* Drawing functions */
 void drw_rect(Drw *drw, int x, int y, unsigned int w, unsigned int h, int filled, int invert);
 void drw_ellipse(Drw *drw, int x, int y, unsigned int w, unsigned int h, int filled, int invert);
 int drw_text(Drw *drw, int x, int y, unsigned int w, unsigned int h, unsigned int lpad, const char *text, int invert);
+/* 只画字，不填背景：胶囊底色是圆角的，矩形填充会把圆角盖掉 */
+int drw_text_nofill(Drw *drw, int x, int y, unsigned int w, unsigned int h, unsigned int lpad, const char *text, int invert);
+/* 直接用像素值（含 alpha 字节）填充，绕过当前 scheme */
+void drw_fill(Drw *drw, int x, int y, unsigned int w, unsigned int h, unsigned long pixel);
+void drw_fill_rounded(Drw *drw, int x, int y, unsigned int w, unsigned int h, unsigned int r, unsigned long pixel);
+void drw_draw_rounded(Drw *drw, int x, int y, unsigned int w, unsigned int h, unsigned int r, unsigned long pixel);
 
 /* Map functions */
 void drw_map(Drw *drw, Window win, int x, int y, unsigned int w, unsigned int h);

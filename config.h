@@ -16,13 +16,25 @@ static const int showsystray        = 1;
 static const int showbar            = 1;
 static const int topbar             = 1;
 
-/* 栏高和留白单独配置，避免字号变化破坏布局。 */
-static const unsigned int barheight       = 30;
+/* 悬浮胶囊 bar：bar 窗口整体内缩，每个分区各自是一颗圆角半透明胶囊，
+ * 胶囊之间完全透明、直接露出壁纸。栏高和留白单独配置，避免字号变化破坏布局。 */
+static const unsigned int barheight       = 30; /* 胶囊本体高度 */
+static const unsigned int barmarginx      = 10; /* 胶囊到屏幕左右边缘的距离 */
+static const unsigned int barmarginy      = 6;  /* 胶囊到屏幕上/下边缘的距离，需 >= barfeather */
+static const unsigned int barradius       = 15; /* 分区胶囊圆角，= barheight/2 时是完整药丸 */
+static const unsigned int islandgap       = 6;  /* 分区胶囊之间的空隙 */
+static const unsigned int islandpad       = 8;  /* 胶囊内部左右留白 */
+static const unsigned int pillinset       = 4;  /* 内嵌高亮胶囊相对分区的内缩量 */
+static const unsigned int tagradius       = 9;  /* 内嵌高亮胶囊圆角 */
+static const unsigned int tabgap          = 4;  /* 标题胶囊里各 tab 之间的间隔 */
+static const unsigned int traypad         = 4;  /* 托盘图标上下留白 */
+static const unsigned int barfeather      = 2;  /* 圆角抗锯齿层数，0 关闭 */
+static const unsigned int barborder       = 1;  /* 胶囊 1px 高光描边，玻璃感主要靠它 */
+static const int barpremult               = 1;  /* 颜色按 alpha 预乘，低 alpha 才准确 */
 static const unsigned int barlrpad        = 16; /* 文本左右留白总和 */
-static const unsigned int tagwidthpx      = 36; /* Tag 固定点击宽度 */
-static const unsigned int tagindicator    = 3;  /* 当前 Tag / tab 底部指示条 */
-static const unsigned int statuspadding   = 9;  /* 状态模块单侧内边距 */
-static const unsigned int statusgap       = 0;  /* 状态模块无缝连接 */
+static const unsigned int tagwidthpx      = 34; /* Tag 固定点击宽度 */
+static const unsigned int statuspadding   = 9;  /* 状态胶囊单侧内边距 */
+static const unsigned int statusgap       = 6;  /* 状态胶囊之间的空隙 */
 
 static const char *fonts[] = {
   "JetBrainsMono Nerd Font Mono:style=SemiBold:size=12",
@@ -44,39 +56,54 @@ static const char col_red[]         = "#f38ba8";
 static const char col_teal[]        = "#94e2d5";
 static const char col_sky[]         = "#89dceb";
 static const char col_yellow[]      = "#f9e2af";
-static const char col_stat_system[] = "#192a3a";
-static const char col_stat_music[]  = "#2a243b";
-static const char col_stat_volume[] = "#1d2b42";
-static const char col_stat_clock[]  = "#1b3132";
-static const char col_stat_date[]   = "#322e25";
+static const char col_stat_system[] = "#1b3243";
+static const char col_stat_music[]  = "#2f2843";
+static const char col_stat_volume[] = "#1e3350";
+static const char col_stat_clock[]  = "#1c3a3b";
+static const char col_stat_date[]   = "#37322a";
+/* 胶囊专用：底色直接复用 col_surface（玻璃），强调色胶囊上的深色字复用 col_bg */
+static const char col_pillline[]    = "#585b70"; /* 胶囊 1px 高光描边 */
+static const char col_urgglass[]    = "#3a2536"; /* 紧急窗口的暗红玻璃 */
 
-static const unsigned int baralpha    = 0xea; /* 约 92%，配合 Picom 模糊 */
+static const unsigned int baralpha    = 0xa0; /* 约 63%，玻璃感主要来自这里 */
+static const unsigned int selalpha    = 0xc8; /* 选中标题胶囊稍实一点 */
+static const unsigned int hovalpha    = 0x78; /* 悬停更虚，不和选中抢 */
+static const unsigned int accentalpha = 0xf0; /* 强调色胶囊要够实，深色字才压得住 */
+static const unsigned int linealpha   = 0x55; /* 描边 */
 static const unsigned int borderalpha = OPAQUE;
 static const char *colors[][3] = {
-  /*                      fg            bg                border */
-  [SchemeNorm]       = { col_text,      col_bg,            col_border   },
-  [SchemeSel]        = { col_blue,      col_surface,       col_blue     },
-  [SchemeHov]        = { col_lavender,  col_hover,         col_lavender },
-  [SchemeHid]        = { col_muted,     col_bg,            col_border   },
-  [SchemeUrg]        = { col_red,       col_surface,       col_red      },
-  [SchemeStatSystem] = { col_sky,       col_stat_system,   col_sky      },
-  [SchemeStatMusic]  = { col_mauve,     col_stat_music,    col_mauve    },
-  [SchemeStatVolume] = { col_blue,      col_stat_volume,   col_blue     },
-  [SchemeStatClock]  = { col_teal,      col_stat_clock,    col_teal     },
-  [SchemeStatDate]   = { col_yellow,    col_stat_date,     col_yellow   },
+  /*                      fg              bg                border */
+  [SchemeNorm]       = { col_text,       col_surface,       col_border   },
+  [SchemeSel]        = { col_blue,       col_hover,         col_blue     },
+  [SchemeHov]        = { col_lavender,   col_hover,         col_lavender },
+  [SchemeHid]        = { col_muted,      col_surface,       col_border   },
+  [SchemeUrg]        = { col_red,        col_urgglass,      col_red      },
+  [SchemeTagAct]     = { col_bg,         col_blue,          col_blue     },
+  [SchemeTagUrg]     = { col_bg,         col_red,           col_red      },
+  [SchemeTagOff]     = { col_muted,      col_surface,       col_border   },
+  [SchemeLt]         = { col_mauve,      col_surface,       col_mauve    },
+  [SchemeStatSystem] = { col_sky,        col_stat_system,   col_sky      },
+  [SchemeStatMusic]  = { col_mauve,      col_stat_music,   col_mauve    },
+  [SchemeStatVolume] = { col_blue,       col_stat_volume,  col_blue     },
+  [SchemeStatClock]  = { col_teal,       col_stat_clock,   col_teal     },
+  [SchemeStatDate]   = { col_yellow,     col_stat_date,    col_yellow   },
 };
 static const unsigned int alphas[][3] = {
-  /*                      fg      bg        border */
-  [SchemeNorm]       = { OPAQUE, baralpha, borderalpha },
-  [SchemeSel]        = { OPAQUE, baralpha, borderalpha },
-  [SchemeHov]        = { OPAQUE, baralpha, borderalpha },
-  [SchemeHid]        = { OPAQUE, baralpha, borderalpha },
-  [SchemeUrg]        = { OPAQUE, baralpha, borderalpha },
-  [SchemeStatSystem] = { OPAQUE, baralpha, borderalpha },
-  [SchemeStatMusic]  = { OPAQUE, baralpha, borderalpha },
-  [SchemeStatVolume] = { OPAQUE, baralpha, borderalpha },
-  [SchemeStatClock]  = { OPAQUE, baralpha, borderalpha },
-  [SchemeStatDate]   = { OPAQUE, baralpha, borderalpha },
+  /*                      fg      bg            border */
+  [SchemeNorm]       = { OPAQUE, baralpha,     borderalpha },
+  [SchemeSel]        = { OPAQUE, selalpha,     borderalpha },
+  [SchemeHov]        = { OPAQUE, hovalpha,     borderalpha },
+  [SchemeHid]        = { OPAQUE, baralpha,     borderalpha },
+  [SchemeUrg]        = { OPAQUE, selalpha,     borderalpha },
+  [SchemeTagAct]     = { OPAQUE, accentalpha,  borderalpha },
+  [SchemeTagUrg]     = { OPAQUE, accentalpha,  borderalpha },
+  [SchemeTagOff]     = { OPAQUE, baralpha,     borderalpha },
+  [SchemeLt]         = { OPAQUE, baralpha,     borderalpha },
+  [SchemeStatSystem] = { OPAQUE, baralpha,     borderalpha },
+  [SchemeStatMusic]  = { OPAQUE, baralpha,     borderalpha },
+  [SchemeStatVolume] = { OPAQUE, baralpha,     borderalpha },
+  [SchemeStatClock]  = { OPAQUE, baralpha,     borderalpha },
+  [SchemeStatDate]   = { OPAQUE, baralpha,     borderalpha },
 };
 
 /* tagging */

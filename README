@@ -2,8 +2,13 @@ dwm - themed dynamic window manager
 =====================================
 
 This build includes a coordinated dark glass theme for dwm, Picom, Rofi,
-st and Dunst. See `rice/README.md` for dependencies, installation and
-troubleshooting. The companion status loop is `scripts/statusbar/status.sh`.
+st and Dunst. The bar is a floating "capsule" bar: it is inset from the
+screen edges and every section (tags, layout, window titles, each status
+module, system tray) is its own rounded, translucent pill, with fully
+transparent gaps showing the wallpaper. See `rice/README.md` for the
+tunable geometry, dependencies, installation and troubleshooting; open
+`rice/preview.html` in a browser for a visual mockup. The companion status
+loop is `scripts/statusbar/status.sh`.
 
 Upstream dwm information
 ------------------------
