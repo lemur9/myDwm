@@ -4,45 +4,14 @@
 
 ## 这版 DWM 改了什么
 
-- 悬浮胶囊 bar：bar 窗口整体内缩，tags、布局、标题、每个状态模块、托盘各自是一颗圆角半透明胶囊，胶囊之间完全透明、直接露出壁纸。
-- 当前 Tag 和当前标题用内嵌高亮胶囊表示（当前 Tag 是蓝底深字），不再使用底部指示条和大面积红底。
-- 已占用 Tag 使用小圆点；空 Tag 的字形压暗，层级更清楚。
-- 普通、选中、悬停、隐藏、紧急窗口使用不同视觉状态：只有选中/悬停/紧急的标题才有内嵌胶囊，普通标题只显示文字。
-- 内存、音乐、音量、时间、中文星期和日期显示为可点击的彩色胶囊模块。
-- 胶囊圆角自己做抗锯齿（`barfeather` 层渐淡外扩）+ 1px 高光描边（`barborder`），因为 X 核心协议的弧线没有抗锯齿。
-- 颜色按 alpha 预乘（`barpremult`）：ARGB 窗口内容在合成器里按预乘解释，不预乘的话低 alpha 的颜色会偏浓。
-- 8px 内间距、12px 外间距、2px 边框和单窗口 smart gaps。
+- 30px 状态栏、固定宽度且居中的 Tag。
+- 当前 Tag 与当前标题使用 3px 底部指示条，不再使用大面积红底。
+- 已占用 Tag 使用小圆点。
+- 普通、选中、悬停、隐藏、紧急窗口使用不同视觉状态。
+- 内存、音乐、音量、时间、中文星期和日期显示为可点击的彩色状态模块。
+- 8px 内间距、12px 外间距、2px 边框和单窗口 smart gaps；状态模块与托盘图标无额外间隔。
 - `Mod+p` 改为打开 Rofi drun。
 - 修复原来只为两个 Scheme 提供 alpha、另外两个 Scheme 越界读取的问题。
-- 修复托盘 selection 抢占失败时 `getsystraywidth()` 解引用空指针的问题。
-
-## 悬浮胶囊 bar 的调节点
-
-都在 `config.h` 顶部，改完重新编译：
-
-| 变量 | 默认 | 作用 |
-|---|---|---|
-| `barheight` | 30 | 胶囊本体高度 |
-| `barmarginx` / `barmarginy` | 10 / 6 | 胶囊到屏幕左右、上下的距离（悬浮留白） |
-| `barradius` | 15 | 分区胶囊圆角；等于 `barheight/2` 时是完整药丸 |
-| `islandgap` | 6 | 分区胶囊之间的空隙 |
-| `islandpad` | 8 | 胶囊内部左右留白 |
-| `pillinset` / `tagradius` | 4 / 9 | 内嵌高亮胶囊的内缩量和圆角 |
-| `tabgap` | 4 | 标题胶囊里各 tab 之间的间隔 |
-| `statusgap` | 6 | 状态胶囊之间的空隙 |
-| `barfeather` | 2 | 圆角抗锯齿层数，0 关闭；同时决定 bar 窗口比胶囊大多少 |
-| `barborder` | 1 | 胶囊 1px 高光描边开关 |
-| `baralpha` | 0xa0 | 胶囊底色透明度，约 63% |
-| `barpremult` | 1 | 颜色按 alpha 预乘，觉得颜色不对可以改 0 对比 |
-
-注意 `barmarginy` 要 >= `barfeather`，否则 bar 窗口会伸出布局预留的那一条。
-
-布局预留高度 `bh = barheight + 2 * barmarginy`（默认 42px），比原来的 30px 高，
-窗口区域会相应变矮一点；嫌占地方就把 `barmarginy` 调到 4。
-
-窄屏或者状态文本过长时按顺序降级：先丢掉标题胶囊，再丢掉布局胶囊，
-保证右边的时钟和日期始终完整可见。1024px 以下同时播放长曲名时，
-状态胶囊会盖住 tags 胶囊的右侧，这时把 `statuspadding` 或 `islandpad` 调小即可。
 
 ## 文件
 
@@ -221,28 +190,6 @@ fc-match "JetBrainsMono Nerd Font Mono"
 $DWM/scripts/statusbar/status.sh
 ```
 
-### 胶囊之间出现一条模糊的矩形带
+### 托盘最左侧图标偶尔变成纯黑
 
-Picom 的 `blur-background` 是按窗口矩形生效的，不看像素 alpha，所以整条 bar 窗口
-（包括胶囊之间的空隙和四周的抗锯齿留白）都会被模糊。深色平滑壁纸下看不出来，
-胶囊还能拿到真正的磨砂玻璃质感，因此默认保留模糊。壁纸细节多、看着碍眼的话，
-在 `picom.conf` 的 `blur-background-exclude` 里加上：
-
-```conf
-  "class_g = 'dwm'",
-```
-
-代价是胶囊只剩半透明、没有磨砂感。
-
-### 胶囊颜色比 config.h 里的色值浅 / 深
-
-`barpremult` 默认打开：颜色会先按 alpha 预乘再写进 ARGB 窗口，这是合成器期望的格式，
-`baralpha = 0xa0` 就是真正的 63% 混合。如果你的合成器/驱动把窗口内容当成非预乘处理，
-胶囊会显得偏浓，这时把 `barpremult` 改成 0 再编译对比一下。
-
-### 托盘图标跑到胶囊外面 / 变成方块
-
-托盘现在是盖在托盘胶囊正上方的一颗独立透明窗口，胶囊底色由 bar 窗口垫。
-图标高度按 `barheight - 2 * traypad` 缩放并在胶囊里垂直居中，改 `barheight` 后需要
-重启托盘应用（图标尺寸是嵌入时协商的，只重载 Picom 或重编译 DWM 不够）。
-24-bit 图标的透明区会填 `col_surface`，32-bit 图标走自己的 alpha 通道。
+这版托盘会使用与状态栏一致的 ARGB Visual，并发布 `_NET_SYSTEM_TRAY_VISUAL`；24-bit 和 32-bit 图标使用不同的清屏背景，首次嵌入后还会主动请求一次重绘。Picom 也不会再分别裁切 DWM bar 与 systray 的交界处。更新后需要重新编译 DWM，并完整重启托盘应用；只重载 Picom 不够。
