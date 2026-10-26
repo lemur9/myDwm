@@ -89,11 +89,12 @@ static const Rule rules[] = {
      */
   /* class      instance    title       tags mask     isfloating   monitor */
   { "Gimp",     NULL,       NULL,       0,            1,           -1 },
+  { "obsidian", NULL,       NULL,       1 << 1,       0,           -1 },
   { "chrome",   NULL,       NULL,       1 << 2,       0,           -1 },
   { "QQ",       NULL,       NULL,       1 << 3,       0,            0 },
   { "wechat",   NULL,       NULL,       1 << 4,       0,            0 },
   { "steam",    NULL,       NULL,       1 << 6,       0,           -1 },
-  { "obs",      NULL,       NULL,       1 << 7,       0,           -1 },
+  { "obs",      NULL,       "OBS ",       1 << 7,       0,           -1 },
   { NULL,       NULL,       "画中画",    0,            1,            1 },
   { NULL,       NULL,       "预览",      0,            1,           -1 },
 
@@ -246,8 +247,8 @@ static const Key keys[] = {
   { MODKEY,                       XK_F2,     spawn,          SHCMD("$DWM/scripts/statusbar/vol.sh change -5") },
   // Win+F3 音量增大5%
   { MODKEY,                       XK_F3,     spawn,          SHCMD("$DWM/scripts/statusbar/vol.sh change +5") },
-  // Win+F12 截图
-  { MODKEY,                       XK_F12,    spawn,          SHCMD("flameshot gui") },
+  // Alt+A 截图
+  { Mod1Mask,                     XK_a,    spawn,          SHCMD("flameshot gui") },
 
   TAGKEYS(                        XK_1,                      0)
   TAGKEYS(                        XK_2,                      1)
