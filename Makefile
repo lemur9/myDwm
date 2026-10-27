@@ -6,6 +6,8 @@ include config.mk
 SRC = drw.c dwm.c util.c
 OBJ = ${SRC:.c=.o}
 
+PYTHON ?= python3
+
 all: dwm
 
 .c.o:
@@ -42,4 +44,7 @@ uninstall:
 	rm -f ${DESTDIR}${PREFIX}/bin/dwm\
 		${DESTDIR}${MANPREFIX}/man1/dwm.1
 
-.PHONY: all clean dist install uninstall
+test:
+	${PYTHON} -m unittest discover -s tests -v
+
+.PHONY: all clean dist install uninstall test

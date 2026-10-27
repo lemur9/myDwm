@@ -1,0 +1,3 @@
+# GTK3 / PyGObject and libpulse are OS packages; see docs/smart-audio.md.
+pulsectl>=24.4,<25
+python-xlib>=0.33,<1

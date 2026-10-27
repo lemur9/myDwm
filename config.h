@@ -88,6 +88,7 @@ static const Rule rules[] = {
      *	WM_NAME(STRING) = title
      */
   /* class      instance    title       tags mask     isfloating   monitor */
+  { "DwmAudio", NULL,       NULL,       0,            1,           -1 },
   { "Gimp",     NULL,       NULL,       0,            1,           -1 },
   { "obsidian", NULL,       NULL,       1 << 1,       0,           -1 },
   { "chrome",   NULL,       NULL,       1 << 2,       0,           -1 },
@@ -241,12 +242,16 @@ static const Key keys[] = {
 
 
   /* 绑定功能键 */
-  // Win+F1 静音
+  // Win+F1/F2/F3：统一智能目标（音量与静音遵循同一规则）
   { MODKEY,                       XK_F1,     spawn,          SHCMD("$DWM/scripts/statusbar/vol.sh change 0") },
   // Win+F2 音量减小5%
   { MODKEY,                       XK_F2,     spawn,          SHCMD("$DWM/scripts/statusbar/vol.sh change -5") },
   // Win+F3 音量增大5%
   { MODKEY,                       XK_F3,     spawn,          SHCMD("$DWM/scripts/statusbar/vol.sh change +5") },
+  // Win+Shift+F1/F2/F3：只控制默认输出设备，不受应用锁定影响
+  { MODKEY|ShiftMask,             XK_F1,     spawn,          SHCMD("$DWM/scripts/statusbar/vol.sh device 0") },
+  { MODKEY|ShiftMask,             XK_F2,     spawn,          SHCMD("$DWM/scripts/statusbar/vol.sh device -5") },
+  { MODKEY|ShiftMask,             XK_F3,     spawn,          SHCMD("$DWM/scripts/statusbar/vol.sh device +5") },
   // Alt+A 截图
   { Mod1Mask,                     XK_a,    spawn,          SHCMD("flameshot gui") },
 

@@ -34,7 +34,7 @@ rice/
 - JetBrainsMono Nerd Font
 - Noto Sans CJK SC
 - 推荐 Papirus Dark 图标主题
-- 状态栏音量需要 `pactl` 或 `wpctl`
+- 智能声音控制需要 Python 3.10+、libpulse、`pulsectl`、`python-xlib`、GTK3 / PyGObject；安装与验收见 [智能声音控制](../docs/smart-audio.md)
 - 音乐控制需要 `mpd`、`mpc`，播放器窗口需要 `ncmpcpp`，网络歌单同步需要 `yun`
 - 日历通知需要 `cal`
 
@@ -124,7 +124,7 @@ static const char workspace[] = "/tool/dwm";
 export DWM_USE_BUNDLED_STATUS=0
 ```
 
-内存和音量字段使用固定宽度，因此数值从一位变成两位或三位时不会推动相邻模块。音乐图标始终显示；只有 MPD 正在播放时才附加歌曲名，长标题会截断而不会滚动。
+内存数值保持固定宽度。音量模块显示统一声音服务选出的目标、音量、静音和锁定标记，长应用名称截断；不会再固定显示默认设备却调节其他应用。音乐图标始终显示；只有 MPD 正在播放时才附加歌曲名，长标题会截断而不会滚动。
 
 状态模块点击行为：
 
@@ -132,9 +132,11 @@ export DWM_USE_BUNDLED_STATUS=0
 |---|---|---|---|---|
 | 内存 | 英文系统摘要 | 英文系统摘要 | 打开/关闭唯一的 btop/htop 窗口 | — |
 | 音乐 | 播放/暂停 | 打开/关闭 ncmpcpp | Rofi 音乐菜单 | 上一首/下一首 |
-| 音量 | 沿用原音量脚本 | 沿用原音量脚本 | 沿用原音量脚本 | 沿用原音量脚本 |
+| 音量 | 智能目标静音切换 | 原生应用声音页 | 原生输出设备页 | 智能目标 ±1 个百分点 |
 | 时间 | 番茄钟 | 健康提醒 | 取消番茄钟 | — |
 | 日期 | 日历 | 任务列表 | 新建任务 | 过期/未来任务 |
+
+声音快捷键：Win+F1/F2/F3 为智能静音/−5/+5，Win+Shift+F1/F2/F3 只控制默认输出设备。多个后台应用且前台没有声音时，弹出应用选择并锁定，本次按键不修改音量。完整规则、持久化路由与测试说明见 [智能声音控制](../docs/smart-audio.md)。
 
 音乐同步会串行报告三个歌单的结果、音乐文件总数变化、MPD 数据库状态、耗时和日志路径。只有完整成功后才进入一小时冷却；失败可以立即重试。
 
@@ -147,6 +149,7 @@ pkill slstatus 2>/dev/null || true
 
 picom --config ~/.config/picom/picom.conf -b
 dunst -config ~/.config/dunst/dunstrc &
+./scripts/utils/sound/audioctl start
 ./scripts/statusbar/status.sh &
 ```
 

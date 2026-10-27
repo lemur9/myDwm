@@ -13,6 +13,12 @@ if command -v dunst >/dev/null 2>&1 && ! pgrep -x dunst >/dev/null 2>&1; then
   dunst -config "$_configHome/dunst/dunstrc" >/dev/null 2>&1 &
 fi
 
+# 声音服务内部使用会话锁；重复运行 autostart 不会丢失当前应用锁定。
+# 它只连接现有 PulseAudio，不启动、替换或重启系统音频服务。
+if [[ "${DWM_USE_SMART_AUDIO:-1}" == 1 ]] && [ -x "$_utilsDir/sound/audioctl" ]; then
+  "$_utilsDir/sound/audioctl" start >/dev/null 2>&1 &
+fi
+
 if [[ "${DWM_USE_BUNDLED_STATUS:-1}" == 1 ]] &&
    command -v xsetroot >/dev/null 2>&1; then
   # Restart one known owner on every dwm start. This also replaces an older

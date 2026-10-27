@@ -1,7 +1,7 @@
 #!/bin/bash
 # debounce.sh —— 防抖脚本
 # 用法示例：
-#   debounce "volume" 1 pactl set-sink-mute @DEFAULT_SINK@ toggle
+#   debounce "volume" 1 "$DWM/scripts/utils/sound/audioctl" mute
 
 # 参数：
 #   $1 = 锁名称（建议与功能名一致）

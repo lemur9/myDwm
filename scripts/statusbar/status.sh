@@ -3,8 +3,8 @@
 # Control bytes 1/4/6/7/8 select both click actions and color schemes.
 
 interval="${STATUS_INTERVAL:-1}"
-VOL_VALUE="--"
-VOL_ICON=""
+VOLUME_TEXT=" 音频离线"
+audioctl="$(cd -- "$(dirname -- "$0")/../utils/sound" && pwd)/audioctl"
 MUSIC_TEXT=""
 last_status=""
 
@@ -37,30 +37,9 @@ memory_usage() {
 }
 
 volume_status() {
-  local muted value
-  VOL_VALUE="--"
-  VOL_ICON=""
-
-  if command -v pactl >/dev/null 2>&1; then
-    muted=$(pactl get-sink-mute @DEFAULT_SINK@ 2>/dev/null)
-    value=$(pactl get-sink-volume @DEFAULT_SINK@ 2>/dev/null |
-      awk 'NR == 1 { for (i=1; i<=NF; i++) if ($i ~ /%$/) { gsub(/%/, "", $i); print $i; exit } }')
-    VOL_VALUE="${value:---}"
-    if printf '%s' "$muted" | grep -qiE 'yes|是'; then
-      VOL_ICON=""
-    elif [[ "$VOL_VALUE" =~ ^[0-9]+$ ]] && (( VOL_VALUE < 35 )); then
-      VOL_ICON=""
-    fi
-  elif command -v wpctl >/dev/null 2>&1; then
-    value=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null)
-    if printf '%s' "$value" | grep -q MUTED; then
-      VOL_ICON=""
-      VOL_VALUE=0
-    else
-      VOL_VALUE=$(awk '{ printf "%d", $2 * 100 }' <<< "$value")
-      [[ "$VOL_VALUE" =~ ^[0-9]+$ ]] && (( VOL_VALUE < 35 )) && VOL_ICON=""
-    fi
-  fi
+  # No pactl/wpctl fallback: displaying a different target from the one being
+  # controlled is worse than explicitly showing that the shared service is off.
+  VOLUME_TEXT=$("$audioctl" status 2>/dev/null) || VOLUME_TEXT=" 音频离线"
 }
 
 music_status() {
@@ -91,17 +70,11 @@ while :; do
   # Memory stays on the bar; CPU details are available from system.sh.
   printf -v status '\001󰍛 %3d%%\004%s' "$memory" "$MUSIC_TEXT"
 
-  if [[ "$VOL_VALUE" =~ ^[0-9]+$ ]]; then
-    printf -v volume_label '%3d%%' "$VOL_VALUE"
-  else
-    printf -v volume_label '%4s' "$VOL_VALUE"
-  fi
-
   read -r weekday_num clock_text date_text <<< "$(date '+%u %H:%M %m-%d')"
   weekdays=(一 二 三 四 五 六 日)
   weekday_text=${weekdays[weekday_num - 1]}
-  printf -v status '%s\006%s %s\007 %s\010 %s %s' \
-    "$status" "$VOL_ICON" "$volume_label" "$clock_text" \
+  printf -v status '%s\006%s\007 %s\010 %s %s' \
+    "$status" "$VOLUME_TEXT" "$clock_text" \
     "$weekday_text" "$date_text"
 
   # Do not emit redundant X property events when every visible value is equal.

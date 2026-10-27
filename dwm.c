@@ -360,7 +360,8 @@ static void zoom(const Arg *arg);
 /* variables */
 static Systray *systray =  NULL;
 static const char broken[] = "broken";
-static char stext[256];
+/* UTF-8 application names plus music metadata must not truncate later blocks. */
+static char stext[1024];
 static int statusw;
 static int statuscmdn;
 static char lastbutton[] = "-";

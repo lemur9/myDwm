@@ -84,8 +84,8 @@
     timeout = 0
     default_icon = dialog-error
 
-[volume]
-    summary = "*Volume*"
+[smart-audio]
+    appname = "dwm-audio"
     history_ignore = yes
     timeout = 2
     frame_color = "#89B4FA"

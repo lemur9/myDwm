@@ -1,0 +1,23 @@
+window.audio-panel { background: #11111b; color: #cdd6f4; font-family: "Noto Sans CJK SC", sans-serif; font-size: 13px; }
+.audio-panel .heading { font-size: 21px; font-weight: bold; color: #cdd6f4; }
+.audio-panel .target { font-size: 15px; font-weight: bold; color: #89b4fa; }
+.audio-panel .app-name { font-size: 14px; font-weight: bold; }
+.audio-panel .dim { color: #a6adc8; font-size: 12px; }
+.audio-panel .error { color: #f38ba8; }
+.audio-panel .chooser { background: #1d2b42; color: #89b4fa; padding: 10px; border-radius: 8px; }
+.audio-panel list, .audio-panel viewport { background: transparent; }
+.audio-panel row { padding: 12px; margin: 0 0 8px; background: #1e1e2e; border: 1px solid #313244; border-radius: 8px; }
+.audio-panel row:selected { border-color: #89b4fa; }
+.audio-panel row:focus { outline: 1px solid #89b4fa; outline-offset: -3px; }
+.audio-panel button, .audio-panel combobox button { background: #313244; background-image: none; color: #cdd6f4; border: 1px solid #45475a; box-shadow: none; border-radius: 6px; padding: 5px 9px; }
+.audio-panel button:hover { background: #45475a; border-color: #89b4fa; }
+.audio-panel button:checked, .audio-panel .accent { background: #1d2b42; color: #89b4fa; border-color: #89b4fa; }
+.audio-panel button:focus, .audio-panel combobox:focus, .audio-panel scale:focus { outline: 1px solid #89b4fa; outline-offset: 2px; }
+.audio-panel button:disabled { color: #6c7086; background: #1e1e2e; }
+.audio-panel scale { padding: 8px 3px; }
+.audio-panel scale trough { min-height: 6px; background: #45475a; border: none; border-radius: 4px; }
+.audio-panel scale highlight { background: #89b4fa; border: none; border-radius: 4px; }
+.audio-panel scale slider { min-width: 14px; min-height: 14px; border: none; border-radius: 50%; background: #cdd6f4; box-shadow: none; }
+.audio-panel expander title { color: #a6adc8; padding: 5px 0; }
+.audio-panel .stream { border-top: 1px solid #45475a; padding-top: 8px; }
+.audio-panel scrollbar slider { background: #45475a; min-width: 5px; border-radius: 4px; }

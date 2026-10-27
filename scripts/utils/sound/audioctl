@@ -1,0 +1,4 @@
+#!/bin/sh
+# DWM_AUDIO_PYTHON may point at a --system-site-packages virtualenv for GTK.
+dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd) || exit 1
+exec "${DWM_AUDIO_PYTHON:-python3}" "$dir/audio.py" "$@"
